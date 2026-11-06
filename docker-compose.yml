@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ronda
+      POSTGRES_PASSWORD: ronda
+      POSTGRES_DB: ronda
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - ronda_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ronda -d ronda"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  ronda_pg:
