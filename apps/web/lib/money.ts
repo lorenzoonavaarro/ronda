@@ -5,6 +5,13 @@ export function formatUsd(minor: number): string {
   }).format(minor / 100);
 }
 
+export function minorToDollars(minor: number): string {
+  const whole = Math.trunc(minor / 100);
+  const fraction = String(Math.abs(minor % 100)).padStart(2, '0');
+
+  return `${whole}.${fraction}`;
+}
+
 export function dollarsToMinor(value: string): number | null {
   const trimmed = value.trim();
 

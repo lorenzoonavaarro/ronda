@@ -1,0 +1,251 @@
+import {
+  Controller,
+  Get,
+  HttpCode,
+  Post,
+  Query,
+  Req,
+  Res,
+  UnauthorizedException,
+} from '@nestjs/common';
+import type { RawBodyRequest } from '@nestjs/common';
+import type { Request, Response } from 'express';
+
+import { AuthService } from '../../auth/application/auth.service';
+import { SESSION_COOKIE } from '../../auth/domain/session-token';
+import { readCookie } from '../../auth/presentation/session-cookie';
+import { pageOrigin } from '../../paypal/domain/paypal-config';
+import { ChargesService } from '../application/charges.service';
+import { PaypalVaultError } from '../domain/errors';
+
+const SETUP_COOKIE = 'ronda_paypal_vault';
+const CIRCLE_COOKIE = 'ronda_paypal_vault_circle';
+const SETUP_MAX_AGE_MS = 15 * 60 * 1000;
+
+@Controller('paypal')
+export class ChargesController {
+  constructor(
+    private readonly charges: ChargesService,
+    private readonly auth: AuthService,
+  ) {}
+
+  @Get('vault/start')
+  async start(
+    @Req() request: Request,
+    @Res() response: Response,
+    @Query('circle') circle?: string,
+  ): Promise<void> {
+    const forwarded = localhostForward(request, '/paypal/vault/start');
+
+    if (forwarded) {
+      response.redirect(forwarded);
+      return;
+    }
+
+    const circleId = isUuid(circle) ? circle : null;
+    const sessionToken = readCookie(request.headers.cookie, SESSION_COOKIE);
+    const user = sessionToken
+      ? await this.auth.authenticate(sessionToken)
+      : null;
+
+    if (!user) {
+      const next = circleId ? `/circles/${circleId}` : '/settings';
+      response.redirect(
+        `${this.webOrigin(request)}/login?next=${encodeURIComponent(next)}`,
+      );
+      return;
+    }
+
+    const returnUrl = vaultCallbackUrl();
+
+    try {
+      const started = await this.charges.beginApproval({
+        returnUrl,
+        cancelUrl: `${returnUrl}?cancelled=1`,
+      });
+      response.cookie(
+        SETUP_COOKIE,
+        started.setupTokenId,
+        cookieOptions(SETUP_MAX_AGE_MS),
+      );
+
+      if (circleId) {
+        response.cookie(
+          CIRCLE_COOKIE,
+          circleId,
+          cookieOptions(SETUP_MAX_AGE_MS),
+        );
+      }
+
+      response.redirect(started.approveUrl);
+    } catch (error) {
+      if (error instanceof PaypalVaultError) {
+        response.redirect(await this.doneUrl(request, circleId, 'unavailable'));
+        return;
+      }
+
+      throw error;
+    }
+  }
+
+  @Get('vault/callback')
+  async callback(
+    @Req() request: Request,
+    @Res() response: Response,
+    @Query('cancelled') cancelled?: string,
+    @Query('approval_token_id') approvalTokenId?: string,
+  ): Promise<void> {
+    const forwarded = localhostVaultRedirect(request);
+
+    if (forwarded) {
+      response.redirect(forwarded);
+      return;
+    }
+
+    const clear = () => {
+      response.clearCookie(SETUP_COOKIE, cookieOptions());
+      response.clearCookie(CIRCLE_COOKIE, cookieOptions());
+    };
+    const sessionToken = readCookie(request.headers.cookie, SESSION_COOKIE);
+    const user = sessionToken
+      ? await this.auth.authenticate(sessionToken)
+      : null;
+    const circleId = readCookie(request.headers.cookie, CIRCLE_COOKIE);
+
+    if (!user) {
+      clear();
+      response.redirect(`${this.webOrigin(request)}/login?next=/settings`);
+      return;
+    }
+
+    if (cancelled === '1') {
+      clear();
+      response.redirect(await this.doneUrl(request, circleId, 'denied'));
+      return;
+    }
+
+    const setupTokenId = readCookie(request.headers.cookie, SETUP_COOKIE);
+
+    if (
+      !setupTokenId ||
+      (approvalTokenId && approvalTokenId !== setupTokenId)
+    ) {
+      clear();
+      response.redirect(await this.doneUrl(request, circleId, 'unavailable'));
+      return;
+    }
+
+    try {
+      await this.charges.completeApproval(user.id, setupTokenId);
+      clear();
+      response.redirect(await this.doneUrl(request, circleId, 'approved'));
+    } catch (error) {
+      clear();
+
+      if (error instanceof PaypalVaultError) {
+        response.redirect(await this.doneUrl(request, circleId, 'unavailable'));
+        return;
+      }
+
+      throw error;
+    }
+  }
+
+  @Post('webhook')
+  @HttpCode(200)
+  async webhook(@Req() request: RawBodyRequest<Request>): Promise<void> {
+    const raw = request.rawBody;
+
+    if (!raw) {
+      throw new UnauthorizedException();
+    }
+
+    const accepted = await this.charges.receiveWebhook(raw, request.headers);
+
+    if (!accepted) {
+      throw new UnauthorizedException();
+    }
+  }
+
+  private async doneUrl(
+    request: Request,
+    circleId: string | null | undefined,
+    result: string,
+  ): Promise<string> {
+    const origin = this.webOrigin(request);
+    const member =
+      circleId && isUuid(circleId)
+        ? await this.charges.memberOf(circleId, await this.userId(request))
+        : false;
+    const path = member ? `/circles/${circleId}` : '/settings';
+    const url = new URL(path, origin);
+    url.searchParams.set('charges', result);
+    return url.toString();
+  }
+
+  private async userId(request: Request): Promise<string> {
+    const sessionToken = readCookie(request.headers.cookie, SESSION_COOKIE);
+    const user = sessionToken
+      ? await this.auth.authenticate(sessionToken)
+      : null;
+
+    return user?.id ?? '';
+  }
+
+  private webOrigin(request: Request): string {
+    return pageOrigin(
+      request.hostname,
+      process.env.WEB_ORIGIN?.trim() || 'http://localhost:3001',
+    );
+  }
+}
+
+function vaultCallbackUrl(): string {
+  const port = /^\d{1,5}$/.test(process.env.PORT ?? '')
+    ? process.env.PORT
+    : '3000';
+
+  return `http://127.0.0.1:${port}/paypal/vault/callback`;
+}
+
+function localhostVaultRedirect(request: Request): string | null {
+  return localhostForward(request, '/paypal/vault/callback');
+}
+
+function localhostForward(request: Request, path: string): string | null {
+  if (request.hostname !== '127.0.0.1') {
+    return null;
+  }
+
+  const port = /^\d{1,5}$/.test(process.env.PORT ?? '')
+    ? process.env.PORT
+    : '3000';
+  const url = new URL(`http://localhost:${port}${path}`);
+
+  for (const [key, value] of Object.entries(request.query)) {
+    if (typeof value === 'string' && value.length > 0) {
+      url.searchParams.set(key, value);
+    }
+  }
+
+  return url.toString();
+}
+
+function cookieOptions(maxAge?: number) {
+  return {
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    ...(maxAge === undefined ? {} : { maxAge }),
+  };
+}
+
+function isUuid(value: string | undefined | null): value is string {
+  return (
+    typeof value === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+  );
+}

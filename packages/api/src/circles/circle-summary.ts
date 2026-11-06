@@ -6,4 +6,5 @@ export type CircleSummary = {
   status: 'forming' | 'active' | 'completed';
   memberCount: number;
   membersRequired: number;
+  viewerIsCreator: boolean;
 };

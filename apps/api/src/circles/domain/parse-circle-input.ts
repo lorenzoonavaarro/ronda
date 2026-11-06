@@ -1,4 +1,9 @@
-import { MAX_MONTHLY_AMOUNT_MINOR, MIN_MONTHLY_AMOUNT_MINOR } from './circle';
+import {
+  MAX_CIRCLE_SEATS,
+  MAX_MONTHLY_AMOUNT_MINOR,
+  MIN_CIRCLE_SEATS,
+  MIN_MONTHLY_AMOUNT_MINOR,
+} from './circle';
 import { InvalidCircleInputError } from './errors';
 
 const MAX_NAME_LENGTH = 60;
@@ -6,6 +11,10 @@ const MAX_NAME_LENGTH = 60;
 export type CreateCircleInput = {
   name: string;
   monthlyAmountMinor: number;
+};
+
+export type CircleSettingsInput = CreateCircleInput & {
+  membersRequired: number;
 };
 
 export function parseCreateCircle(body: unknown): CreateCircleInput {
@@ -42,4 +51,21 @@ export function parseCreateCircle(body: unknown): CreateCircleInput {
   }
 
   return { name, monthlyAmountMinor: amount };
+}
+
+export function parseCircleSettings(body: unknown): CircleSettingsInput {
+  const circle = parseCreateCircle(body);
+  const record = body as Record<string, unknown>;
+  const seats = record.membersRequired;
+
+  if (
+    typeof seats !== 'number' ||
+    !Number.isInteger(seats) ||
+    seats < MIN_CIRCLE_SEATS ||
+    seats > MAX_CIRCLE_SEATS
+  ) {
+    throw new InvalidCircleInputError('A circle has 2 to 12 seats.');
+  }
+
+  return { ...circle, membersRequired: seats };
 }

@@ -64,9 +64,10 @@ export function CreateCircleForm() {
         <Input name="amount" inputMode="decimal" placeholder="50.00" required />
       </Label>
       <p className="text-sm text-muted-foreground">
-        You are the first member. The circle stays forming until 6 people have
-        joined. Invites come next. The payout order is fixed when it starts, and
-        a member who has not paid does not receive that month&apos;s pot.
+        You are the first member. A new circle starts with 6 seats. You can set
+        it from 2 to 12, and change the name and monthly amount, until you lock
+        it. Charges start on the day every member has approved, then once each
+        month. Locking gives every member one random turn.
       </p>
       {error ? (
         <p role="alert" className="text-sm text-destructive">

@@ -6,7 +6,12 @@
     "WEB_ORIGIN",
     "PORT",
     "NODE_ENV",
-    "NEXT_PUBLIC_API_URL"
+    "NEXT_PUBLIC_API_URL",
+    "PAYPAL_ENV",
+    "PAYPAL_CLIENT_ID",
+    "PAYPAL_CLIENT_SECRET",
+    "PAYPAL_RETURN_URL",
+    "PAYPAL_WEBHOOK_ID"
   ],
   "tasks": {
     "build": {

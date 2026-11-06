@@ -1,5 +1,25 @@
 export function apiBase(): string {
-  return process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+  const configured = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:3000';
+
+  if (typeof window === 'undefined') {
+    return configured;
+  }
+
+  try {
+    const url = new URL(configured);
+    const pageHost = window.location.hostname;
+    const localHost =
+      url.hostname === '127.0.0.1' || url.hostname === 'localhost';
+    const localPage = pageHost === '127.0.0.1' || pageHost === 'localhost';
+
+    if (localHost && localPage) {
+      url.hostname = pageHost;
+    }
+
+    return url.origin;
+  } catch {
+    return configured;
+  }
 }
 
 export async function readApiError(response: Response): Promise<string> {

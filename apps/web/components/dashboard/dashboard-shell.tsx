@@ -31,6 +31,7 @@ import {
   CirclePlusIcon,
   EllipsisVerticalIcon,
   LayoutDashboardIcon,
+  Settings2Icon,
   UsersIcon,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -42,6 +43,10 @@ import { LogoutButton } from '../logout-button';
 const nav = [
   { href: '/', label: 'Overview', icon: LayoutDashboardIcon },
   { href: '/circles', label: 'Circles', icon: UsersIcon },
+];
+
+const secondaryNav = [
+  { href: '/settings', label: 'Settings', icon: Settings2Icon },
 ];
 
 export function DashboardShell({
@@ -95,6 +100,24 @@ export function DashboardShell({
                 </SidebarMenu>
                 <SidebarMenu>
                   {nav.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        isActive={pathname === item.href}
+                        tooltip={item.label}
+                        render={<Link href={item.href} />}
+                      >
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+            <SidebarGroup className="mt-auto">
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {secondaryNav.map((item) => (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton
                         isActive={pathname === item.href}

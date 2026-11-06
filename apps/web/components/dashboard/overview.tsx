@@ -35,7 +35,7 @@ export function Overview({ circles }: { circles: CircleSummary[] }) {
           <CardFooter className="flex-col items-start gap-1.5 text-sm">
             <div className="line-clamp-1 font-medium">Groups you belong to</div>
             <div className="text-muted-foreground">
-              A circle starts when 6 people have joined.
+              The creator locks a circle when its seats are filled.
             </div>
           </CardFooter>
         </Card>
@@ -64,18 +64,22 @@ export function Overview({ circles }: { circles: CircleSummary[] }) {
           <CardHeader>
             <CardDescription>Next recipient</CardDescription>
             <CardTitle className="text-2xl font-semibold leading-tight">
-              Not set
+              {running ? 'Assigned' : 'Not set'}
             </CardTitle>
             <CardAction>
-              <Badge variant="outline">Order unset</Badge>
+              <Badge variant="outline">
+                {running ? 'Turns assigned' : 'Order unset'}
+              </Badge>
             </CardAction>
           </CardHeader>
           <CardFooter className="flex-col items-start gap-1.5 text-sm">
             <div className="line-clamp-1 font-medium">
-              Nobody is assigned the pot
+              {running
+                ? 'Open a locked circle to see the turns'
+                : 'Nobody is assigned the pot'}
             </div>
             <div className="text-muted-foreground">
-              Payout order is fixed when a circle starts.
+              The creator locks the circle to assign one random turn each.
             </div>
           </CardFooter>
         </Card>

@@ -18,7 +18,7 @@ export default async function CirclesPage() {
 
   return (
     <DashboardShell title="Circles" user={user}>
-      <CircleList circles={circles} />
+      <CircleList circles={circles} searchable />
     </DashboardShell>
   );
 }

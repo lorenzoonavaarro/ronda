@@ -1,6 +1,11 @@
 import { cookies } from 'next/headers';
 
-import type { AuthUser, CircleSummary } from '@repo/api';
+import type {
+  AuthUser,
+  CircleDetail,
+  CircleSummary,
+  PaypalLinkStatus,
+} from '@repo/api';
 
 import { apiBase } from './http';
 
@@ -50,4 +55,46 @@ export async function getCircles(): Promise<CircleSummary[]> {
   }
 
   return (await response.json()) as CircleSummary[];
+}
+
+export async function getCircle(id: string): Promise<CircleDetail | null> {
+  const cookie = await sessionCookie();
+
+  if (!cookie) {
+    return null;
+  }
+
+  const response = await fetch(`${apiBase()}/circles/${id}`, {
+    headers: { cookie },
+    cache: 'no-store',
+  });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error('Could not load this circle.');
+  }
+
+  return (await response.json()) as CircleDetail;
+}
+
+export async function getPaypalLink(): Promise<PaypalLinkStatus> {
+  const cookie = await sessionCookie();
+
+  if (!cookie) {
+    throw new Error('Sign in required.');
+  }
+
+  const response = await fetch(`${apiBase()}/paypal/account`, {
+    headers: { cookie },
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error('Could not load the PayPal account.');
+  }
+
+  return (await response.json()) as PaypalLinkStatus;
 }

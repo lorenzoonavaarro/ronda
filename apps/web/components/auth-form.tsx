@@ -1,67 +1,20 @@
-'use client';
-
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
 
 import { Button } from '@repo/ui/components/button';
 import { Input } from '@repo/ui/components/input';
 import { Label } from '@repo/ui/components/label';
 
-import { apiBase, readApiError } from '../lib/http';
 import { AuthShell } from './auth-shell';
 
 type AuthFormProps = {
   mode: 'login' | 'register';
+  nextPath?: string | null;
+  error?: string | null;
 };
 
-export function AuthForm({ mode }: AuthFormProps) {
-  const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+export function AuthForm({ mode, nextPath, error }: AuthFormProps) {
   const isRegister = mode === 'register';
-
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    setSubmitting(true);
-
-    const form = new FormData(event.currentTarget);
-    const body = {
-      username: String(form.get('username') ?? ''),
-      password: String(form.get('password') ?? ''),
-      ...(isRegister
-        ? {
-            displayName: String(form.get('displayName') ?? ''),
-            email: String(form.get('email') ?? ''),
-          }
-        : {}),
-    };
-
-    try {
-      const response = await fetch(
-        `${apiBase()}/auth/${isRegister ? 'register' : 'login'}`,
-        {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(body),
-        },
-      );
-
-      if (!response.ok) {
-        setError(await readApiError(response));
-        return;
-      }
-
-      router.push('/');
-      router.refresh();
-    } catch {
-      setError('The server did not respond. Try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  const action = `/api/auth/${isRegister ? 'register' : 'login'}`;
 
   return (
     <AuthShell
@@ -84,7 +37,8 @@ export function AuthForm({ mode }: AuthFormProps) {
         )
       }
     >
-      <form className="space-y-4" onSubmit={onSubmit}>
+      <form className="space-y-4" method="post" action={action}>
+        {nextPath ? <input type="hidden" name="next" value={nextPath} /> : null}
         {isRegister ? (
           <Label className="grid gap-2">
             Name
@@ -124,12 +78,8 @@ export function AuthForm({ mode }: AuthFormProps) {
             {error}
           </p>
         ) : null}
-        <Button className="w-full" type="submit" disabled={submitting}>
-          {submitting
-            ? 'Please wait'
-            : isRegister
-              ? 'Create account'
-              : 'Sign in'}
+        <Button className="w-full" type="submit">
+          {isRegister ? 'Create account' : 'Sign in'}
         </Button>
       </form>
     </AuthShell>
