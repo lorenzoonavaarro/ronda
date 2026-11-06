@@ -24,5 +24,6 @@ import { SessionGuard } from './presentation/session.guard';
     { provide: SESSION_REPOSITORY, useExisting: PgSessionRepository },
     { provide: PASSWORD_HASHER, useExisting: ScryptPasswordHasher },
   ],
+  exports: [AuthService, SessionGuard],
 })
 export class AuthModule {}

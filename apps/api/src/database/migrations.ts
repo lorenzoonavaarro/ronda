@@ -48,4 +48,31 @@ export const migrations: { id: string; sql: string }[] = [
       END $$;
     `,
   },
+  {
+    id: '003_circles',
+    sql: `
+      CREATE TABLE IF NOT EXISTS circles (
+        id uuid PRIMARY KEY,
+        name text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 60),
+        monthly_amount_minor integer NOT NULL CHECK (
+          monthly_amount_minor BETWEEN 100 AND 10000000
+        ),
+        currency text NOT NULL DEFAULT 'USD' CHECK (currency = 'USD'),
+        status text NOT NULL CHECK (status IN ('forming', 'active', 'completed')),
+        created_by uuid NOT NULL REFERENCES users (id),
+        created_at timestamptz NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS circle_members (
+        circle_id uuid NOT NULL REFERENCES circles (id) ON DELETE CASCADE,
+        user_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+        payout_position integer,
+        joined_at timestamptz NOT NULL,
+        PRIMARY KEY (circle_id, user_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS circle_members_user_id_idx
+        ON circle_members (user_id);
+    `,
+  },
 ];

@@ -1,13 +1,14 @@
 'use client';
 
+import { Button } from '@repo/ui/components/button';
+import { DropdownMenuItem } from '@repo/ui/components/dropdown-menu';
+import { LogOutIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { Button } from '@repo/ui/components/button';
-
 import { apiBase } from '../lib/http';
 
-export function LogoutButton() {
+export function LogoutButton({ menu = false }: { menu?: boolean }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
 
@@ -23,6 +24,15 @@ export function LogoutButton() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (menu) {
+    return (
+      <DropdownMenuItem onClick={logout} disabled={submitting}>
+        <LogOutIcon />
+        Log out
+      </DropdownMenuItem>
+    );
   }
 
   return (
