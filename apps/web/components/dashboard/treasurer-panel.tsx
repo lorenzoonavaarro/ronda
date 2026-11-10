@@ -4,6 +4,7 @@ import type { TreasurerReply } from '@repo/api';
 import { Button } from '@repo/ui/components/button';
 import { useState, type FormEvent } from 'react';
 
+import { useAuthedFetch } from '../../lib/authed-fetch';
 import { apiBase, readApiError } from '../../lib/http';
 
 const prompts = [
@@ -13,6 +14,7 @@ const prompts = [
 ];
 
 export function TreasurerPanel({ circleId }: { circleId: string }) {
+  const apiFetch = useAuthedFetch();
   const [message, setMessage] = useState('');
   const [reply, setReply] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +32,7 @@ export function TreasurerPanel({ circleId }: { circleId: string }) {
     setSubmitting(true);
 
     try {
-      const response = await fetch(`${apiBase()}/treasurer`, {
+      const response = await apiFetch(`${apiBase()}/treasurer`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'content-type': 'application/json' },

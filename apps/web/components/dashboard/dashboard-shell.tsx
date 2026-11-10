@@ -27,6 +27,7 @@ import {
   useSidebar,
 } from '@repo/ui/components/sidebar';
 import { TooltipProvider } from '@repo/ui/components/tooltip';
+import { UserButton } from '@clerk/nextjs';
 import {
   CirclePlusIcon,
   EllipsisVerticalIcon,
@@ -146,6 +147,9 @@ export function DashboardShell({
                 className="mx-2 h-4 data-vertical:self-auto"
               />
               <h1 className="text-base font-medium">{title}</h1>
+              <div className="ml-auto">
+                <UserButton />
+              </div>
             </div>
           </header>
           <div className="flex flex-1 flex-col">

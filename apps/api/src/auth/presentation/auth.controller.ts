@@ -6,6 +6,7 @@ import {
   Get,
   HttpCode,
   Post,
+  Patch,
   Req,
   Res,
   UnauthorizedException,
@@ -54,21 +55,6 @@ export class AuthController {
     return result.user;
   }
 
-  @Post('supabase-login')
-  @HttpCode(200)
-  async supabaseLogin(@Body() body: unknown) {
-    const session = await this.run(() => this.auth.loginWithSupabase(body));
-
-    if (!session) {
-      throw new UnauthorizedException('Username or password is incorrect.');
-    }
-
-    return {
-      access_token: session.accessToken,
-      refresh_token: session.refreshToken,
-    };
-  }
-
   @Post('logout')
   @HttpCode(204)
   async logout(
@@ -88,6 +74,15 @@ export class AuthController {
   @UseGuards(SessionGuard)
   me(@Req() request: AuthenticatedRequest): AuthUser {
     return request.user;
+  }
+
+  @Patch('me')
+  @UseGuards(SessionGuard)
+  async updateMe(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: unknown,
+  ): Promise<AuthUser> {
+    return this.run(() => this.auth.updateProfile(request.user.id, body));
   }
 
   private async run<T>(work: () => Promise<T>): Promise<T> {

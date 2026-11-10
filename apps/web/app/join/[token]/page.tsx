@@ -39,7 +39,7 @@ export default async function JoinPage({
             Already have an account?{' '}
             <Link
               className="font-medium text-foreground"
-              href={`/login?next=${encodeURIComponent(next)}`}
+              href={`/sign-in?redirect_url=${encodeURIComponent(next)}`}
             >
               Sign in
             </Link>
@@ -48,18 +48,17 @@ export default async function JoinPage({
       >
         <div className="grid gap-3">
           <p className="text-sm text-muted-foreground">
-            Sign in with your Ronda username to join. PayPal is not used to sign
-            in.
+            Sign in to join this circle. PayPal is not used to sign in.
           </p>
           <Link
             className={buttonVariants()}
-            href={`/login?next=${encodeURIComponent(next)}`}
+            href={`/sign-in?redirect_url=${encodeURIComponent(next)}`}
           >
             Sign in
           </Link>
           <Link
             className={buttonVariants({ variant: 'outline' })}
-            href={`/register?next=${encodeURIComponent(next)}`}
+            href={`/sign-up?redirect_url=${encodeURIComponent(next)}`}
           >
             Create an account
           </Link>

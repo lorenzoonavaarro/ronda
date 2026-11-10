@@ -8,6 +8,7 @@ import type {
   UserRepository,
 } from './ports';
 import {
+  ClerkEmailLinkedError,
   EmailAlreadyRegisteredError,
   InvalidAuthInputError,
   InvalidCredentialsError,
@@ -34,6 +35,30 @@ class MemoryUsers implements UserRepository {
     );
   }
 
+  async findByClerkId(clerkUserId: string): Promise<StoredUser | null> {
+    return (
+      [...this.byEmail.values()].find(
+        (entry) => entry.clerkUserId === clerkUserId,
+      ) ?? null
+    );
+  }
+
+  async attachClerkId(
+    id: string,
+    clerkUserId: string,
+  ): Promise<StoredUser | null> {
+    const user = await this.findById(id);
+
+    if (!user || (user.clerkUserId && user.clerkUserId !== clerkUserId)) {
+      return null;
+    }
+
+    const updated = { ...user, clerkUserId };
+    this.byEmail.set(updated.email, updated);
+    this.byUsername.set(updated.username, updated);
+    return updated;
+  }
+
   async insert(user: StoredUser): Promise<void> {
     if (this.byEmail.has(user.email)) {
       throw new EmailAlreadyRegisteredError();
@@ -45,6 +70,23 @@ class MemoryUsers implements UserRepository {
 
     this.byEmail.set(user.email, user);
     this.byUsername.set(user.username, user);
+  }
+
+  async updateProfile(
+    id: string,
+    profile: { username: string; displayName: string },
+  ): Promise<StoredUser> {
+    const user = [...this.byUsername.values()].find((item) => item.id === id);
+
+    if (!user) {
+      throw new Error('User profile was not found.');
+    }
+
+    this.byUsername.delete(user.username);
+    const updated = { ...user, ...profile };
+    this.byEmail.set(updated.email, updated);
+    this.byUsername.set(updated.username, updated);
+    return updated;
   }
 }
 
@@ -192,9 +234,7 @@ describe('AuthService', () => {
 
     await expect(unknown).rejects.toBeInstanceOf(InvalidCredentialsError);
     await expect(wrong).rejects.toBeInstanceOf(InvalidCredentialsError);
-    await expect(unknown).rejects.toThrow(
-      'Username or password is incorrect.',
-    );
+    await expect(unknown).rejects.toThrow('Username or password is incorrect.');
     await expect(wrong).rejects.toThrow('Username or password is incorrect.');
   });
 
@@ -214,6 +254,50 @@ describe('AuthService', () => {
   });
 });
 
+describe('syncClerkUser', () => {
+  it('links an existing email and keeps the internal user id', async () => {
+    const { service } = createService(new Date('2026-01-01T00:00:00Z'));
+    const registered = await service.register(registration);
+
+    const linked = await service.syncClerkUser({
+      id: 'user_clerk_1',
+      email: 'ada@example.com',
+      displayName: 'Ada Lovelace',
+    });
+
+    expect(linked.id).toBe(registered.user.id);
+    expect(linked.email).toBe('ada@example.com');
+  });
+
+  it('creates a new member with an internal id', async () => {
+    const { service } = createService(new Date('2026-01-01T00:00:00Z'));
+
+    const created = await service.syncClerkUser({
+      id: 'user_clerk_2',
+      email: 'grace@example.com',
+      username: 'grace',
+    });
+
+    expect(created.id).not.toBe('user_clerk_2');
+    expect(created.username).toBe('grace');
+  });
+
+  it('refuses to attach a second Clerk user to the same email', async () => {
+    const { service } = createService(new Date('2026-01-01T00:00:00Z'));
+    await service.syncClerkUser({
+      id: 'user_clerk_1',
+      email: 'ada@example.com',
+    });
+
+    await expect(
+      service.syncClerkUser({
+        id: 'user_clerk_2',
+        email: 'ada@example.com',
+      }),
+    ).rejects.toBeInstanceOf(ClerkEmailLinkedError);
+  });
+});
+
 describe('userInsertConflict', () => {
   it('maps the username and email unique constraints', () => {
     expect(
@@ -222,7 +306,9 @@ describe('userInsertConflict', () => {
     expect(
       userInsertConflict({ code: '23505', constraint: 'users_email_key' }),
     ).toBeInstanceOf(EmailAlreadyRegisteredError);
-    expect(userInsertConflict({ code: '23505', constraint: 'other' })).toBeNull();
+    expect(
+      userInsertConflict({ code: '23505', constraint: 'other' }),
+    ).toBeNull();
   });
 });
 

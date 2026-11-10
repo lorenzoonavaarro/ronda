@@ -9,7 +9,7 @@ import {
 import { PgSessionRepository } from './infrastructure/pg-session-repository';
 import { PgUserRepository } from './infrastructure/pg-user-repository';
 import { ScryptPasswordHasher } from './infrastructure/scrypt-password-hasher';
-import { SupabaseTokenService } from './infrastructure/supabase-token.service';
+import { ClerkTokenService } from './infrastructure/clerk-token.service';
 import { AuthController } from './presentation/auth.controller';
 import { SessionGuard } from './presentation/session.guard';
 
@@ -21,11 +21,11 @@ import { SessionGuard } from './presentation/session.guard';
     ScryptPasswordHasher,
     PgUserRepository,
     PgSessionRepository,
-    SupabaseTokenService,
+    ClerkTokenService,
     { provide: USER_REPOSITORY, useExisting: PgUserRepository },
     { provide: SESSION_REPOSITORY, useExisting: PgSessionRepository },
     { provide: PASSWORD_HASHER, useExisting: ScryptPasswordHasher },
   ],
-  exports: [AuthService, SessionGuard, SupabaseTokenService],
+  exports: [AuthService, SessionGuard, ClerkTokenService],
 })
 export class AuthModule {}

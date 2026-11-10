@@ -13,13 +13,16 @@ export function isUniqueViolation(error: unknown): boolean {
 }
 
 export function userInsertConflict(error: unknown): Error | null {
-  if (typeof error !== 'object' || error === null || !isUniqueViolation(error)) {
+  if (
+    typeof error !== 'object' ||
+    error === null ||
+    !isUniqueViolation(error)
+  ) {
     return null;
   }
 
   const constraint =
-    'constraint' in error &&
-    typeof error.constraint === 'string'
+    'constraint' in error && typeof error.constraint === 'string'
       ? error.constraint
       : null;
 

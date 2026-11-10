@@ -1,4 +1,4 @@
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 
 import { ApproveChargesLink } from '@/components/dashboard/approve-charges-link';
 import { CircleSettings } from '@/components/dashboard/circle-settings';
@@ -16,8 +16,9 @@ import {
 
 import { CreditSummary } from '@/components/dashboard/credit-summary';
 import { TreasurerPanel } from '@/components/dashboard/treasurer-panel';
+import { ConfirmPayoutButton } from '@/components/dashboard/confirm-payout-button';
 
-import { getCircle, getCredit, getCurrentUser } from '../../../lib/api';
+import { getCircle, getCredit, requireUser } from '../../../lib/api';
 import { formatUsd } from '../../../lib/money';
 
 export const dynamic = 'force-dynamic';
@@ -35,12 +36,7 @@ export default async function CircleDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ charges?: string | string[] }>;
 }) {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect('/login');
-  }
-
+  const user = await requireUser();
   const { id } = await params;
   const query = await searchParams;
   const noticeKey = typeof query.charges === 'string' ? query.charges : '';
@@ -62,6 +58,13 @@ export default async function CircleDetailPage({
     timeZone: 'UTC',
   }).format(new Date(circle.createdAt));
   const waiting = circle.members.filter((member) => !member.chargeApproved);
+  const paidMembers = circle.members.filter(
+    (member) => member.contributionStatus === 'paid',
+  ).length;
+  const paymentProgress =
+    circle.members.length === 0
+      ? 0
+      : Math.round((paidMembers / circle.members.length) * 100);
 
   return (
     <DashboardShell title={circle.name} user={user}>
@@ -129,6 +132,48 @@ export default async function CircleDetailPage({
               {circle.viewerChargeApproved ? null : (
                 <ApproveChargesLink circleId={circle.id} />
               )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Round progress</CardTitle>
+              <CardDescription>
+                {circle.currentRound === null
+                  ? 'The circle has not started charging yet.'
+                  : `Round ${circle.currentRound} of ${circle.membersRequired}`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-2xl font-semibold">
+                    {formatUsd(circle.potCollectedMinor)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    collected from {paidMembers} of {circle.members.length}{' '}
+                    members
+                  </p>
+                </div>
+                <Badge
+                  variant={paymentProgress === 100 ? 'default' : 'outline'}
+                >
+                  {paymentProgress}% paid
+                </Badge>
+              </div>
+              <div
+                className="h-3 overflow-hidden rounded-full bg-muted"
+                aria-label={`${paymentProgress}% of contributions paid`}
+              >
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${paymentProgress}%` }}
+                />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {paymentProgress === 100
+                  ? 'The round can be reviewed for payout.'
+                  : 'Every member must have a confirmed payment before the pool can be sent.'}
+              </p>
             </CardContent>
           </Card>
           {circle.viewerIsCreator && !locked ? (
@@ -203,6 +248,16 @@ export default async function CircleDetailPage({
             </CardHeader>
             <CardContent>
               <TreasurerPanel circleId={circle.id} />
+              {circle.viewerIsCreator &&
+              circle.currentRound !== null &&
+              circle.status === 'active' &&
+              circle.members.every(
+                (member) => member.contributionStatus === 'paid',
+              ) ? (
+                <div className="mt-4 border-t pt-4">
+                  <ConfirmPayoutButton circleId={circle.id} />
+                </div>
+              ) : null}
             </CardContent>
           </Card>
           <Card>

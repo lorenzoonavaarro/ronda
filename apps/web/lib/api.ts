@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers';
+import { auth } from '@clerk/nextjs/server';
 
 import type {
   AuthUser,
@@ -10,22 +10,39 @@ import type {
 
 import { apiBase } from './http';
 
-async function sessionCookie(): Promise<string | null> {
-  const session = (await cookies()).get('ronda_access_token')?.value;
+async function sessionHeaders(): Promise<HeadersInit | null> {
+  const session = await auth();
 
-  return session ? `ronda_access_token=${session}` : null;
+  if (!session.isAuthenticated) {
+    return null;
+  }
+
+  const token = await session.getToken();
+
+  return token ? { Authorization: `Bearer ${token}` } : null;
+}
+
+export async function requireUser(): Promise<AuthUser> {
+  await auth.protect();
+  const user = await getCurrentUser();
+
+  if (!user) {
+    throw new Error('Signed in, but the account record is not available.');
+  }
+
+  return user;
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
-  const cookie = await sessionCookie();
+  const headers = await sessionHeaders();
 
-  if (!cookie) {
+  if (!headers) {
     return null;
   }
 
   try {
     const response = await fetch(`${apiBase()}/auth/me`, {
-      headers: { cookie },
+      headers,
       cache: 'no-store',
     });
 
@@ -40,14 +57,14 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 }
 
 export async function getCircles(): Promise<CircleSummary[]> {
-  const cookie = await sessionCookie();
+  const headers = await sessionHeaders();
 
-  if (!cookie) {
+  if (!headers) {
     return [];
   }
 
   const response = await fetch(`${apiBase()}/circles`, {
-    headers: { cookie },
+    headers,
     cache: 'no-store',
   });
 
@@ -59,14 +76,14 @@ export async function getCircles(): Promise<CircleSummary[]> {
 }
 
 export async function getCircle(id: string): Promise<CircleDetail | null> {
-  const cookie = await sessionCookie();
+  const headers = await sessionHeaders();
 
-  if (!cookie) {
+  if (!headers) {
     return null;
   }
 
   const response = await fetch(`${apiBase()}/circles/${id}`, {
-    headers: { cookie },
+    headers,
     cache: 'no-store',
   });
 
@@ -82,14 +99,14 @@ export async function getCircle(id: string): Promise<CircleDetail | null> {
 }
 
 export async function getCredit(): Promise<CreditRecord | null> {
-  const cookie = await sessionCookie();
+  const headers = await sessionHeaders();
 
-  if (!cookie) {
+  if (!headers) {
     return null;
   }
 
   const response = await fetch(`${apiBase()}/credit`, {
-    headers: { cookie },
+    headers,
     cache: 'no-store',
   });
 
@@ -101,14 +118,14 @@ export async function getCredit(): Promise<CreditRecord | null> {
 }
 
 export async function getPaypalLink(): Promise<PaypalLinkStatus> {
-  const cookie = await sessionCookie();
+  const headers = await sessionHeaders();
 
-  if (!cookie) {
+  if (!headers) {
     throw new Error('Sign in required.');
   }
 
   const response = await fetch(`${apiBase()}/paypal/account`, {
-    headers: { cookie },
+    headers,
     cache: 'no-store',
   });
 

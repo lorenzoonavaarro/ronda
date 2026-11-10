@@ -17,3 +17,17 @@ export class InvalidCredentialsError extends Error {
 }
 
 export class InvalidAuthInputError extends Error {}
+
+export class ClerkNotConfiguredError extends Error {
+  constructor() {
+    super(
+      'Clerk is not configured. Add CLERK_SECRET_KEY to the API environment.',
+    );
+  }
+}
+
+export class ClerkEmailLinkedError extends Error {
+  constructor() {
+    super('This email is already linked to another sign-in.');
+  }
+}

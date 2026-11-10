@@ -2,59 +2,50 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import type { AuthUser } from '@repo/api';
 import type { Request } from 'express';
 
 import { AuthService } from '../application/auth.service';
-import { SupabaseTokenService } from '../infrastructure/supabase-token.service';
-import { readCookie } from './session-cookie';
+import {
+  ClerkEmailLinkedError,
+  ClerkNotConfiguredError,
+} from '../domain/errors';
 
 export type AuthenticatedRequest = Request & { user: AuthUser };
 
 @Injectable()
 export class SessionGuard implements CanActivate {
-  constructor(
-    private readonly auth: AuthService,
-    private readonly supabase: SupabaseTokenService,
-  ) {}
+  constructor(private readonly auth: AuthService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context
-      .switchToHttp()
-      .getRequest<AuthenticatedRequest>();
-    const accessToken = readCookie(
-      request.headers.cookie,
-      'ronda_access_token',
-    );
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
 
-    const bearer = bearerToken(request.headers.authorization);
-    const identity = await this.supabase.userForToken(
-      bearer || accessToken || '',
-    );
+    try {
+      const user = await this.auth.userFromRequest(request);
 
-    if (!identity?.id || !identity.email) {
-      throw new UnauthorizedException('Sign in required.');
+      if (!user) {
+        throw new UnauthorizedException('Sign in required.');
+      }
+
+      request.user = user;
+      return true;
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+
+      if (error instanceof ClerkNotConfiguredError) {
+        throw new ServiceUnavailableException(error.message);
+      }
+
+      if (error instanceof ClerkEmailLinkedError) {
+        throw new UnauthorizedException(error.message);
+      }
+
+      throw error;
     }
-
-    request.user = await this.auth.syncSupabaseUser({
-      id: identity.id,
-      email: identity.email,
-      username: metadataString(identity.user_metadata.username),
-      displayName: metadataString(identity.user_metadata.display_name),
-    });
-    return true;
   }
-}
-
-function bearerToken(value: string | undefined): string | undefined {
-  const match = /^Bearer\s+(.+)$/i.exec(value ?? '');
-  return match?.[1];
-}
-
-function metadataString(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim().length > 0
-    ? value
-    : undefined;
 }

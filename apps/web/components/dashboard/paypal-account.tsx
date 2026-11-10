@@ -7,6 +7,7 @@ export function PaypalAccount({ account }: { account: PaypalAccountDetails }) {
   const linked = new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
+    timeZone: 'UTC',
   }).format(new Date(account.linkedAt));
 
   return (
@@ -36,7 +37,7 @@ export function PaypalAccount({ account }: { account: PaypalAccountDetails }) {
           <dd className="font-medium break-all">{account.payerId}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Linked</dt>
+          <dt className="text-muted-foreground">Linked (UTC)</dt>
           <dd className="font-medium">{linked}</dd>
         </div>
       </dl>

@@ -1,5 +1,3 @@
-import { redirect } from 'next/navigation';
-
 import { CreateCircleForm } from '@/components/dashboard/create-circle-form';
 import { DashboardShell } from '@/components/dashboard/dashboard-shell';
 import {
@@ -10,16 +8,12 @@ import {
   CardTitle,
 } from '@repo/ui/components/card';
 
-import { getCurrentUser } from '../../../lib/api';
+import { requireUser } from '../../../lib/api';
 
 export const dynamic = 'force-dynamic';
 
 export default async function NewCirclePage() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect('/login');
-  }
+  const user = await requireUser();
 
   return (
     <DashboardShell title="New circle" user={user}>

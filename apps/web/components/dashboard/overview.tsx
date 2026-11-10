@@ -13,9 +13,9 @@ import {
 import { CircleList } from './circle-list';
 
 export function Overview({ circles }: { circles: CircleSummary[] }) {
-  const running = circles.some((circle) => circle.status !== 'forming');
-  const due = running ? 'Not recorded yet' : 'Nothing due';
-  const paid = running ? 'Not recorded' : 'Nothing due';
+  const active = circles.filter((circle) => circle.status === 'active');
+  const forming = circles.filter((circle) => circle.status === 'forming');
+  const completed = circles.filter((circle) => circle.status === 'completed');
 
   return (
     <>
@@ -28,77 +28,69 @@ export function Overview({ circles }: { circles: CircleSummary[] }) {
             </CardTitle>
             <CardAction>
               <Badge variant="outline">
-                {circles.length === 0 ? 'None yet' : 'Yours'}
+                {active.length} active
               </Badge>
             </CardAction>
           </CardHeader>
           <CardFooter className="flex-col items-start gap-1.5 text-sm">
             <div className="line-clamp-1 font-medium">Groups you belong to</div>
             <div className="text-muted-foreground">
-              The creator locks a circle when its seats are filled.
+              {forming.length} forming · {completed.length} completed
             </div>
           </CardFooter>
         </Card>
         <Card className="@container/card">
           <CardHeader>
-            <CardDescription>Due this month</CardDescription>
+            <CardDescription>Circles to finish</CardDescription>
             <CardTitle className="text-2xl font-semibold leading-tight">
-              {due}
+              {forming.length}
             </CardTitle>
             <CardAction>
-              <Badge variant="outline">{running ? 'Open' : 'No pot'}</Badge>
+              <Badge variant="outline">Setup</Badge>
             </CardAction>
           </CardHeader>
           <CardFooter className="flex-col items-start gap-1.5 text-sm">
-            <div className="line-clamp-1 font-medium">
-              {running
-                ? 'Waiting on a recorded payment'
-                : 'No contribution is due'}
-            </div>
+            <div className="line-clamp-1 font-medium">Fill seats and lock</div>
             <div className="text-muted-foreground">
-              The server records this after the money moves.
+              Every member joins before the creator can assign turns.
             </div>
           </CardFooter>
         </Card>
         <Card className="@container/card">
           <CardHeader>
-            <CardDescription>Next recipient</CardDescription>
+            <CardDescription>Active rounds</CardDescription>
             <CardTitle className="text-2xl font-semibold leading-tight">
-              {running ? 'Assigned' : 'Not set'}
+              {active.length}
             </CardTitle>
             <CardAction>
-              <Badge variant="outline">
-                {running ? 'Turns assigned' : 'Order unset'}
-              </Badge>
+              <Badge variant="outline">In progress</Badge>
             </CardAction>
           </CardHeader>
           <CardFooter className="flex-col items-start gap-1.5 text-sm">
-            <div className="line-clamp-1 font-medium">
-              {running
-                ? 'Open a locked circle to see the turns'
-                : 'Nobody is assigned the pot'}
-            </div>
+            <div className="line-clamp-1 font-medium">Track each circle</div>
             <div className="text-muted-foreground">
-              The creator locks the circle to assign one random turn each.
+              Open a circle to see payments, turns, and payout readiness.
             </div>
           </CardFooter>
         </Card>
         <Card className="@container/card">
           <CardHeader>
-            <CardDescription>Paid this month</CardDescription>
+            <CardDescription>Next action</CardDescription>
             <CardTitle className="text-2xl font-semibold leading-tight">
-              {paid}
+              {forming.length > 0
+                ? 'Finish setup'
+                : active.length > 0
+                  ? 'Track round'
+                  : 'Create circle'}
             </CardTitle>
             <CardAction>
-              <Badge variant="outline">No payment record</Badge>
+              <Badge variant="outline">Suggested</Badge>
             </CardAction>
           </CardHeader>
           <CardFooter className="flex-col items-start gap-1.5 text-sm">
-            <div className="line-clamp-1 font-medium">
-              Paid status is not counted here
-            </div>
+            <div className="line-clamp-1 font-medium">Keep the group moving</div>
             <div className="text-muted-foreground">
-              A member who has not paid does not receive that month&apos;s pot.
+              The circle page shows the exact action required next.
             </div>
           </CardFooter>
         </Card>
@@ -108,17 +100,16 @@ export function Overview({ circles }: { circles: CircleSummary[] }) {
           <CardHeader>
             <CardTitle>This month</CardTitle>
             <CardDescription>
-              What you owe, whether it is paid, and who receives the pot.
+              Your circles and the next step for each one.
             </CardDescription>
             <CardAction>
-              <Badge variant="outline">{due}</Badge>
+              <Badge variant="outline">{circles.length} total</Badge>
             </CardAction>
           </CardHeader>
           <CardContent className="px-4 text-sm text-muted-foreground sm:px-6">
             {circles.length === 0 ? (
               <p>
-                No circle is running, so there is no contribution to pay and no
-                pot to send.
+                Create a circle or join one to start saving with a group.
               </p>
             ) : (
               <ul className="grid gap-3">
@@ -128,8 +119,10 @@ export function Overview({ circles }: { circles: CircleSummary[] }) {
                       {circle.name}
                     </span>
                     {circle.status === 'forming'
-                      ? ' has not started. Nobody is due, and the payout order is not set.'
-                      : ' is running. Payment status is recorded by the server after the money moves.'}
+                      ? ` needs ${circle.membersRequired - circle.memberCount} more member${circle.membersRequired - circle.memberCount === 1 ? '' : 's'} before it can be locked.`
+                      : circle.status === 'active'
+                        ? ' is active. Open it to track the current round and payout.'
+                        : ' is completed. Its history remains available.'}
                   </li>
                 ))}
               </ul>

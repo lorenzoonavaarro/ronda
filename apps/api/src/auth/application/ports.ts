@@ -4,14 +4,21 @@ export type StoredUser = {
   username: string;
   displayName: string;
   passwordHash: string;
+  clerkUserId?: string | null;
   createdAt: Date;
 };
 
 export interface UserRepository {
   findById(id: string): Promise<StoredUser | null>;
   findByEmail(email: string): Promise<StoredUser | null>;
+  findByClerkId(clerkUserId: string): Promise<StoredUser | null>;
   findByUsername(username: string): Promise<StoredUser | null>;
   insert(user: StoredUser): Promise<void>;
+  attachClerkId(id: string, clerkUserId: string): Promise<StoredUser | null>;
+  updateProfile(
+    id: string,
+    profile: { username: string; displayName: string },
+  ): Promise<StoredUser>;
 }
 
 export interface SessionRepository {

@@ -1,18 +1,12 @@
-import { redirect } from 'next/navigation';
-
 import { CircleList } from '@/components/dashboard/circle-list';
 import { DashboardShell } from '@/components/dashboard/dashboard-shell';
 
-import { getCircles, getCurrentUser } from '../../lib/api';
+import { getCircles, requireUser } from '../../lib/api';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CirclesPage() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect('/login');
-  }
+  const user = await requireUser();
 
   const circles = await getCircles();
 

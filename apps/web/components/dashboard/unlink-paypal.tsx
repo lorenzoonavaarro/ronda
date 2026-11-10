@@ -4,10 +4,12 @@ import { Button } from '@repo/ui/components/button';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { useAuthedFetch } from '../../lib/authed-fetch';
 import { apiBase, readApiError } from '../../lib/http';
 
 export function UnlinkPaypal() {
   const router = useRouter();
+  const apiFetch = useAuthedFetch();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -16,7 +18,7 @@ export function UnlinkPaypal() {
     setSubmitting(true);
 
     try {
-      const response = await fetch(`${apiBase()}/paypal/unlink`, {
+      const response = await apiFetch(`${apiBase()}/paypal/unlink`, {
         method: 'POST',
         credentials: 'include',
       });

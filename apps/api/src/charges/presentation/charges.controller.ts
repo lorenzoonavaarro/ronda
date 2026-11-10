@@ -12,6 +12,7 @@ import type { RawBodyRequest } from '@nestjs/common';
 import type { Request, Response } from 'express';
 
 import { AuthService } from '../../auth/application/auth.service';
+import { ClerkNotConfiguredError } from '../../auth/domain/errors';
 import { readCookie } from '../../auth/presentation/session-cookie';
 import { pageOrigin } from '../../paypal/domain/paypal-config';
 import { ChargesService } from '../application/charges.service';
@@ -42,19 +43,11 @@ export class ChargesController {
     }
 
     const circleId = isUuid(circle) ? circle : null;
-    const sessionToken = readCookie(
-      request.headers.cookie,
-      'ronda_access_token',
-    );
-    const user = sessionToken
-      ? await this.auth.authenticateSupabase(sessionToken)
-      : null;
+    const user = await this.member(request);
 
     if (!user) {
       const next = circleId ? `/circles/${circleId}` : '/settings';
-      response.redirect(
-        `${this.webOrigin(request)}/login?next=${encodeURIComponent(next)}`,
-      );
+      response.redirect(signInUrl(this.webOrigin(request), next));
       return;
     }
 
@@ -108,18 +101,12 @@ export class ChargesController {
       response.clearCookie(SETUP_COOKIE, cookieOptions());
       response.clearCookie(CIRCLE_COOKIE, cookieOptions());
     };
-    const sessionToken = readCookie(
-      request.headers.cookie,
-      'ronda_access_token',
-    );
-    const user = sessionToken
-      ? await this.auth.authenticateSupabase(sessionToken)
-      : null;
+    const user = await this.member(request);
     const circleId = readCookie(request.headers.cookie, CIRCLE_COOKIE);
 
     if (!user) {
       clear();
-      response.redirect(`${this.webOrigin(request)}/login?next=/settings`);
+      response.redirect(signInUrl(this.webOrigin(request), '/settings'));
       return;
     }
 
@@ -189,15 +176,20 @@ export class ChargesController {
   }
 
   private async userId(request: Request): Promise<string> {
-    const sessionToken = readCookie(
-      request.headers.cookie,
-      'ronda_access_token',
-    );
-    const user = sessionToken
-      ? await this.auth.authenticateSupabase(sessionToken)
-      : null;
-
+    const user = await this.member(request);
     return user?.id ?? '';
+  }
+
+  private async member(request: Request) {
+    try {
+      return await this.auth.userFromRequest(request);
+    } catch (error) {
+      if (error instanceof ClerkNotConfiguredError) {
+        return null;
+      }
+
+      throw error;
+    }
   }
 
   private webOrigin(request: Request): string {
@@ -236,6 +228,12 @@ function localhostForward(request: Request, path: string): string | null {
     }
   }
 
+  return url.toString();
+}
+
+function signInUrl(origin: string, next: string): string {
+  const url = new URL('/sign-in', origin);
+  url.searchParams.set('redirect_url', next);
   return url.toString();
 }
 

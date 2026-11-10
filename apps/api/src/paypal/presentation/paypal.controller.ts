@@ -11,6 +11,7 @@ import type { PaypalLinkStatus } from '@repo/api';
 import type { Request, Response } from 'express';
 
 import { AuthService } from '../../auth/application/auth.service';
+import { ClerkNotConfiguredError } from '../../auth/domain/errors';
 import {
   SessionGuard,
   type AuthenticatedRequest,
@@ -97,17 +98,11 @@ export class PaypalController {
     const clearState = () => {
       response.clearCookie(STATE_COOKIE, cookieOptions());
     };
-    const sessionToken = readCookie(
-      request.headers.cookie,
-      'ronda_access_token',
-    );
-    const user = sessionToken
-      ? await this.auth.authenticateSupabase(sessionToken)
-      : null;
+    const user = await this.member(request);
 
     if (!user) {
       clearState();
-      response.redirect(`${this.webOrigin(request)}/login?next=/settings`);
+      response.redirect(signInUrl(this.webOrigin(request), '/settings'));
       return;
     }
 
@@ -154,6 +149,24 @@ export class PaypalController {
   private webOrigin(request: Request): string {
     return pageOrigin(request.hostname, this.paypal.config.webOrigin);
   }
+
+  private async member(request: Request) {
+    try {
+      return await this.auth.userFromRequest(request);
+    } catch (error) {
+      if (error instanceof ClerkNotConfiguredError) {
+        return null;
+      }
+
+      throw error;
+    }
+  }
+}
+
+function signInUrl(origin: string, next: string): string {
+  const url = new URL('/sign-in', origin);
+  url.searchParams.set('redirect_url', next);
+  return url.toString();
 }
 
 function firstQuery(value: string | string[] | undefined): string | undefined {

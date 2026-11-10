@@ -1,22 +1,20 @@
 'use client';
 
+import { useClerk } from '@clerk/nextjs';
 import { Button } from '@repo/ui/components/button';
 import { DropdownMenuItem } from '@repo/ui/components/dropdown-menu';
 import { LogOutIcon } from 'lucide-react';
 import { useState } from 'react';
 
 export function LogoutButton({ menu = false }: { menu?: boolean }) {
+  const { signOut } = useClerk();
   const [submitting, setSubmitting] = useState(false);
 
   async function logout() {
     setSubmitting(true);
 
     try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'same-origin',
-      });
-      window.location.replace('/');
+      await signOut({ redirectUrl: '/' });
     } finally {
       setSubmitting(false);
     }

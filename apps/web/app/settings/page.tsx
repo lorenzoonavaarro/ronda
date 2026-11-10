@@ -8,11 +8,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@repo/ui/components/card';
-import { redirect } from 'next/navigation';
-
 import { CreditSummary } from '@/components/dashboard/credit-summary';
+import { ProfileForm } from '@/components/dashboard/profile-form';
 
-import { getCredit, getCurrentUser, getPaypalLink } from '../../lib/api';
+import { getCredit, getPaypalLink, requireUser } from '../../lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,12 +30,7 @@ export default async function SettingsPage({
 }: {
   searchParams: Promise<{ paypal?: string | string[] }>;
 }) {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect('/login');
-  }
-
+  const user = await requireUser();
   const params = await searchParams;
   const noticeKey = typeof params.paypal === 'string' ? params.paypal : '';
   const notice = notices[noticeKey];
@@ -51,21 +45,11 @@ export default async function SettingsPage({
           <CardHeader>
             <CardTitle>Account</CardTitle>
             <CardDescription>
-              You sign in with your email through Supabase. PayPal is only the
-              account that will send and receive circle money.
+              Update the name and username shown to your circle members.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <dl className="grid gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-muted-foreground">Name</dt>
-                <dd className="font-medium">{user.displayName}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Username</dt>
-                <dd className="font-medium">{user.username}</dd>
-              </div>
-            </dl>
+            <ProfileForm user={user} />
           </CardContent>
         </Card>
         {credit ? (
@@ -87,11 +71,7 @@ export default async function SettingsPage({
           <CardHeader>
             <CardTitle>PayPal</CardTitle>
             <CardDescription>
-              Link the PayPal account Ronda should use for contributions and
-              payouts. This does not replace your Supabase login.
-              {paypal.environment
-                ? ` This connection uses the ${paypal.environment} environment.`
-                : ''}
+              Link the PayPal account used for contributions and payouts.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
@@ -99,49 +79,10 @@ export default async function SettingsPage({
             {account ? (
               <PaypalAccount account={account} />
             ) : paypal.configured ? (
-              <div className="grid gap-3">
-                <PaypalConnectLink />
-                <div className="grid gap-2 text-sm text-muted-foreground">
-                  <p>
-                    PayPal’s page says this action is not allowed in your
-                    country, and that the client id or return URL is not valid.
-                    That appears when Log in with PayPal is off for this sandbox
-                    app, or the return URL saved on the app is different.
-                  </p>
-                  <ol className="list-decimal space-y-1 pl-5">
-                    <li>Open Apps & Credentials and stay on Sandbox.</li>
-                    <li>
-                      Open the app whose client id is in the API env file.
-                    </li>
-                    <li>
-                      Under Other features, turn on Log in with PayPal and open
-                      Advanced Settings.
-                    </li>
-                    <li>
-                      Set Return URL to {paypal.returnUrl}. PayPal rejects the
-                      hostname localhost in that field.
-                    </li>
-                    <li>
-                      For sandbox testing, set the privacy policy URL and the
-                      user agreement URL to https://example.com.
-                    </li>
-                    <li>
-                      Include email, account verification status, and PayPal
-                      account ID.
-                    </li>
-                    <li>Save. Sandbox does not need app review.</li>
-                  </ol>
-                  <p>
-                    Sign in on that page with a sandbox personal account from
-                    the Developer Dashboard.
-                  </p>
-                </div>
-              </div>
+              <PaypalConnectLink />
             ) : (
               <p className="text-sm text-muted-foreground">
-                The server needs PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET
-                before an account can be linked. The return URL is{' '}
-                {paypal.returnUrl}.
+                PayPal linking is not configured yet.
               </p>
             )}
           </CardContent>

@@ -6,6 +6,7 @@ import { Label } from '@repo/ui/components/label';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 
+import { useAuthedFetch } from '../../lib/authed-fetch';
 import { apiBase, readApiError } from '../../lib/http';
 import { dollarsToMinor, minorToDollars } from '../../lib/money';
 
@@ -26,6 +27,7 @@ export function CircleSettings({
   membersRequired: number;
 }) {
   const router = useRouter();
+  const apiFetch = useAuthedFetch();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<'save' | 'lock' | null>(null);
   const remaining = membersRequired - memberCount;
@@ -66,7 +68,7 @@ export function CircleSettings({
     setSubmitting('save');
 
     try {
-      const response = await fetch(`${apiBase()}/circles/${circleId}`, {
+      const response = await apiFetch(`${apiBase()}/circles/${circleId}`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'content-type': 'application/json' },
@@ -95,7 +97,7 @@ export function CircleSettings({
     setSubmitting('lock');
 
     try {
-      const response = await fetch(`${apiBase()}/circles/${circleId}/lock`, {
+      const response = await apiFetch(`${apiBase()}/circles/${circleId}/lock`, {
         method: 'POST',
         credentials: 'include',
       });

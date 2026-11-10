@@ -19,6 +19,11 @@ export type LoginInput = {
   password: string;
 };
 
+export type ProfileUpdateInput = {
+  username: string;
+  displayName: string;
+};
+
 function readRecord(body: unknown): Record<string, unknown> {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     throw new InvalidAuthInputError('Enter your username and password.');
@@ -104,5 +109,24 @@ export function parseLogin(body: unknown): LoginInput {
   return {
     username: readUsername(record.username),
     password: readPassword(record.password),
+  };
+}
+
+export function parseProfileUpdate(body: unknown): ProfileUpdateInput {
+  const record = readRecord(body);
+
+  if (typeof record.displayName !== 'string') {
+    throw new InvalidAuthInputError('Enter your name.');
+  }
+
+  const displayName = record.displayName.trim();
+
+  if (displayName.length === 0 || displayName.length > MAX_NAME_LENGTH) {
+    throw new InvalidAuthInputError('Enter your name.');
+  }
+
+  return {
+    username: readUsername(record.username),
+    displayName,
   };
 }

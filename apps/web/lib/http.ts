@@ -1,5 +1,27 @@
+const API_FALLBACK = 'http://127.0.0.1:3000';
+
+function apiOrigin(configured: string): string {
+  try {
+    const url = new URL(configured);
+    const local =
+      url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+
+    // Port 3001 is the Next.js app. Account routes live on the API.
+    if (local && url.port === '3001') {
+      url.port = '3000';
+      return url.origin;
+    }
+  } catch {
+    return API_FALLBACK;
+  }
+
+  return configured;
+}
+
 export function apiBase(): string {
-  const configured = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:3000';
+  const configured = apiOrigin(
+    process.env.NEXT_PUBLIC_API_URL ?? API_FALLBACK,
+  );
 
   if (typeof window === 'undefined') {
     return configured;

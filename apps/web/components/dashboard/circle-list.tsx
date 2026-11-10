@@ -210,10 +210,37 @@ export function CircleList({
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground">
-                  {circle.memberCount} of {circle.membersRequired} members
-                  {circle.memberCount < circle.membersRequired
-                    ? ` · ${circle.membersRequired - circle.memberCount} open`
-                    : ' · full'}
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <span>
+                      {circle.memberCount} of {circle.membersRequired} members
+                    </span>
+                    <span className="text-xs">
+                      {circle.memberCount >= circle.membersRequired
+                        ? 'Full'
+                        : `${circle.membersRequired - circle.memberCount} open`}
+                    </span>
+                  </div>
+                  <div
+                    className="h-2 overflow-hidden rounded-full bg-muted"
+                    aria-label={`${circle.memberCount} of ${circle.membersRequired} seats filled`}
+                  >
+                    <div
+                      className="h-full rounded-full bg-primary transition-all"
+                      style={{
+                        width: `${Math.min(
+                          (circle.memberCount / circle.membersRequired) * 100,
+                          100,
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="mt-3">
+                    {circle.status === 'forming'
+                      ? 'Next: fill the seats, then lock the circle.'
+                      : circle.status === 'active'
+                        ? 'Next: track contributions and the current payout turn.'
+                        : 'Completed circle history.'}
+                  </p>
                 </CardContent>
               </Card>
             </Link>

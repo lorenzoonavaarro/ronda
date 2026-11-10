@@ -11,7 +11,7 @@ export const migrations: { id: string; sql: string }[] = [
         id uuid PRIMARY KEY,
         email text NOT NULL UNIQUE,
         display_name text NOT NULL,
-        password_hash text NOT NULL DEFAULT 'supabase-managed',
+        password_hash text NOT NULL DEFAULT 'clerk-managed',
         created_at timestamptz NOT NULL
       );
 
@@ -286,6 +286,48 @@ export const migrations: { id: string; sql: string }[] = [
             AND missed.status = 'failed'
         )
       ON CONFLICT (user_id, circle_id, round_number, event_type) DO NOTHING;
+    `,
+  },
+  {
+    id: '010_payouts',
+    sql: `
+      CREATE TABLE IF NOT EXISTS payouts (
+        id uuid PRIMARY KEY,
+        circle_id uuid NOT NULL REFERENCES circles (id) ON DELETE CASCADE,
+        round_number integer NOT NULL CHECK (round_number >= 1),
+        creator_id uuid NOT NULL REFERENCES users (id),
+        recipient_user_id uuid NOT NULL REFERENCES users (id),
+        recipient_email text NOT NULL,
+        amount_minor integer NOT NULL CHECK (amount_minor > 0),
+        status text NOT NULL CHECK (
+          status IN ('pending', 'submitted', 'succeeded', 'failed')
+        ),
+        paypal_batch_id text UNIQUE,
+        paypal_item_id text UNIQUE,
+        failure_reason text,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        UNIQUE (circle_id, round_number)
+      );
+
+      CREATE INDEX IF NOT EXISTS payouts_paypal_batch_id_idx
+        ON payouts (paypal_batch_id);
+    `,
+  },
+  {
+    id: '011_clerk_user',
+    sql: `
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS clerk_user_id text;
+
+      CREATE UNIQUE INDEX IF NOT EXISTS users_clerk_user_id_key
+        ON users (clerk_user_id);
+    `,
+  },
+  {
+    id: '011_clerk_auth',
+    sql: `
+      ALTER TABLE users
+        ALTER COLUMN password_hash SET DEFAULT 'clerk-managed';
     `,
   },
 ];

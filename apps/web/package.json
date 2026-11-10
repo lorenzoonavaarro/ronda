@@ -11,6 +11,8 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.9.25",
+    "@clerk/ui": "^1.42.4",
     "@repo/ui": "workspace:*",
     "@tailwindcss/postcss": "^4.3.4",
     "lucide-react": "^1.68.0",

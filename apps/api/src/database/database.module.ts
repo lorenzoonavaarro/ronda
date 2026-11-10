@@ -8,15 +8,12 @@ import {
 import { Pool } from 'pg';
 
 import { migrate } from './migrate';
+import { postgresSsl } from './postgres-ssl';
 
 function createPool(connectionString: string): Pool {
-  const hostname = new URL(connectionString).hostname;
-  const local = hostname === 'localhost' || hostname === '127.0.0.1';
-
   return new Pool({
     connectionString,
-    // Supabase's certificate chain is rejected by Node's trust store.
-    ssl: local ? undefined : { rejectUnauthorized: false },
+    ssl: postgresSsl(connectionString),
   });
 }
 

@@ -6,11 +6,13 @@ import { Label } from '@repo/ui/components/label';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 
+import { useAuthedFetch } from '../../lib/authed-fetch';
 import { apiBase, readApiError } from '../../lib/http';
 import { dollarsToMinor } from '../../lib/money';
 
 export function CreateCircleForm() {
   const router = useRouter();
+  const apiFetch = useAuthedFetch();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -29,7 +31,7 @@ export function CreateCircleForm() {
     setSubmitting(true);
 
     try {
-      const response = await fetch(`${apiBase()}/circles`, {
+      const response = await apiFetch(`${apiBase()}/circles`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'content-type': 'application/json' },
