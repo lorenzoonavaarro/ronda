@@ -54,6 +54,21 @@ export class AuthController {
     return result.user;
   }
 
+  @Post('supabase-login')
+  @HttpCode(200)
+  async supabaseLogin(@Body() body: unknown) {
+    const session = await this.run(() => this.auth.loginWithSupabase(body));
+
+    if (!session) {
+      throw new UnauthorizedException('Username or password is incorrect.');
+    }
+
+    return {
+      access_token: session.accessToken,
+      refresh_token: session.refreshToken,
+    };
+  }
+
   @Post('logout')
   @HttpCode(204)
   async logout(

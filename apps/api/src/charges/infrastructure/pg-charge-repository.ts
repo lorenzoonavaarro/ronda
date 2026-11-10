@@ -1,12 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
 import { PG_POOL } from '../../database/database.module';
+import { PgCreditRepository } from '../../credit/infrastructure/pg-credit-repository';
 import type {
   ChargeRepository,
   ContributionRow,
   LockedCircle,
   StoredContributionStatus,
+  WebhookTransaction,
 } from '../application/ports';
 
 type ContributionRecord = {
@@ -147,28 +149,46 @@ export class PgChargeRepository implements ChargeRepository {
     );
   }
 
-  async markFailed(id: string): Promise<void> {
-    await this.pool.query(
+  async markFailed(id: string): Promise<ContributionRow | null> {
+    const updated = await this.pool.query<ContributionRecord>(
       `UPDATE contributions
        SET status = 'failed'
-       WHERE id = $1 AND status = 'pending'`,
+       WHERE id = $1 AND status = 'pending'
+       RETURNING id, circle_id, user_id, round_number, amount_minor, status,
+                 paypal_order_id`,
       [id],
     );
+
+    if (updated.rows[0]) {
+      return mapContribution(updated.rows[0]);
+    }
+
+    return this.contributionByStatus(id, 'failed');
   }
 
   async markPaid(
     id: string,
     captureId: string | null,
     amountMinor: number,
-  ): Promise<void> {
-    await this.pool.query(
+  ): Promise<ContributionRow | null> {
+    const updated = await this.pool.query<ContributionRecord>(
       `UPDATE contributions
        SET status = 'paid', paypal_capture_id = $2, paid_at = now()
        WHERE id = $1
          AND status IN ('pending', 'failed')
-         AND amount_minor = $3`,
+         AND amount_minor = $3
+       RETURNING id, circle_id, user_id, round_number, amount_minor, status,
+                 paypal_order_id`,
       [id, captureId, amountMinor],
     );
+
+    if (updated.rows[0]) {
+      return mapContribution(updated.rows[0]);
+    }
+
+    const existing = await this.contributionByStatus(id, 'paid');
+
+    return existing?.amountMinor === amountMinor ? existing : null;
   }
 
   async markRefunded(id: string): Promise<void> {
@@ -243,6 +263,44 @@ export class PgChargeRepository implements ChargeRepository {
 
     return (result.rowCount ?? 0) > 0;
   }
+
+  async withWebhookTransaction<T>(
+    work: (transaction: WebhookTransaction) => Promise<T>,
+  ): Promise<T> {
+    const client = await this.pool.connect();
+    const transactionCharges = new PgWebhookChargeRepository(client);
+    const transactionCredit = new PgCreditRepository(client);
+
+    try {
+      await client.query('BEGIN');
+      const result = await work({
+        charges: transactionCharges,
+        credit: transactionCredit,
+      });
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  private async contributionByStatus(
+    id: string,
+    status: StoredContributionStatus,
+  ): Promise<ContributionRow | null> {
+    const result = await this.pool.query<ContributionRecord>(
+      `SELECT id, circle_id, user_id, round_number, amount_minor, status,
+              paypal_order_id
+       FROM contributions
+       WHERE id = $1 AND status = $2`,
+      [id, status],
+    );
+
+    return result.rows[0] ? mapContribution(result.rows[0]) : null;
+  }
 }
 
 function mapContribution(row: ContributionRecord): ContributionRow {
@@ -255,4 +313,85 @@ function mapContribution(row: ContributionRecord): ContributionRow {
     status: row.status,
     paypalOrderId: row.paypal_order_id,
   };
+}
+
+class PgWebhookChargeRepository {
+  constructor(private readonly client: PoolClient) {}
+
+  async markFailed(id: string): Promise<ContributionRow | null> {
+    const updated = await this.client.query<ContributionRecord>(
+      `UPDATE contributions
+       SET status = 'failed'
+       WHERE id = $1 AND status = 'pending'
+       RETURNING id, circle_id, user_id, round_number, amount_minor, status,
+                 paypal_order_id`,
+      [id],
+    );
+
+    if (updated.rows[0]) {
+      return mapContribution(updated.rows[0]);
+    }
+
+    return this.contributionByStatus(id, 'failed');
+  }
+
+  async markPaid(
+    id: string,
+    captureId: string | null,
+    amountMinor: number,
+  ): Promise<ContributionRow | null> {
+    const updated = await this.client.query<ContributionRecord>(
+      `UPDATE contributions
+       SET status = 'paid', paypal_capture_id = $2, paid_at = now()
+       WHERE id = $1
+         AND status IN ('pending', 'failed')
+         AND amount_minor = $3
+       RETURNING id, circle_id, user_id, round_number, amount_minor, status,
+                 paypal_order_id`,
+      [id, captureId, amountMinor],
+    );
+
+    if (updated.rows[0]) {
+      return mapContribution(updated.rows[0]);
+    }
+
+    const existing = await this.contributionByStatus(id, 'paid');
+
+    return existing?.amountMinor === amountMinor ? existing : null;
+  }
+
+  async markRefunded(id: string): Promise<void> {
+    await this.client.query(
+      `UPDATE contributions
+       SET status = 'refunded'
+       WHERE id = $1 AND status = 'paid'`,
+      [id],
+    );
+  }
+
+  async recordEvent(eventId: string): Promise<boolean> {
+    const result = await this.client.query(
+      `INSERT INTO paypal_webhook_events (id)
+       VALUES ($1)
+       ON CONFLICT (id) DO NOTHING`,
+      [eventId],
+    );
+
+    return result.rowCount === 1;
+  }
+
+  private async contributionByStatus(
+    id: string,
+    status: StoredContributionStatus,
+  ): Promise<ContributionRow | null> {
+    const result = await this.client.query<ContributionRecord>(
+      `SELECT id, circle_id, user_id, round_number, amount_minor, status,
+              paypal_order_id
+       FROM contributions
+       WHERE id = $1 AND status = $2`,
+      [id, status],
+    );
+
+    return result.rows[0] ? mapContribution(result.rows[0]) : null;
+  }
 }

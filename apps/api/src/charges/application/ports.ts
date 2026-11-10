@@ -1,5 +1,7 @@
 import type { IncomingHttpHeaders } from 'node:http';
 
+import type { CreditRecorder } from '../../credit/application/ports';
+
 export type StoredContributionStatus =
   'pending' | 'paid' | 'failed' | 'refunded';
 
@@ -40,12 +42,12 @@ export interface ChargeRepository {
     amountMinor: number;
   }): Promise<void>;
   saveOrderId(id: string, orderId: string): Promise<void>;
-  markFailed(id: string): Promise<void>;
+  markFailed(id: string): Promise<ContributionRow | null>;
   markPaid(
     id: string,
     captureId: string | null,
     amountMinor: number,
-  ): Promise<void>;
+  ): Promise<ContributionRow | null>;
   markRefunded(id: string): Promise<void>;
   recordEvent(eventId: string): Promise<boolean>;
   contributionsForRound(
@@ -59,7 +61,18 @@ export interface ChargeRepository {
   }): Promise<void>;
   paymentTokenFor(userId: string): Promise<string | null>;
   isMember(circleId: string, userId: string): Promise<boolean>;
+  withWebhookTransaction<T>(
+    work: (transaction: WebhookTransaction) => Promise<T>,
+  ): Promise<T>;
 }
+
+export type WebhookTransaction = {
+  charges: Pick<
+    ChargeRepository,
+    'markFailed' | 'markPaid' | 'markRefunded' | 'recordEvent'
+  >;
+  credit: CreditRecorder;
+};
 
 export interface PaypalPayments {
   createSetupToken(input: {

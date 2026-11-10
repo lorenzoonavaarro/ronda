@@ -20,6 +20,18 @@ type UserRow = {
 export class PgUserRepository implements UserRepository {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
+  async findById(id: string): Promise<StoredUser | null> {
+    const result = await this.pool.query<UserRow>(
+      `SELECT id, email, username, display_name, password_hash, created_at
+       FROM users
+       WHERE id = $1`,
+      [id],
+    );
+    const row = result.rows[0];
+
+    return row ? mapUser(row) : null;
+  }
+
   async findByEmail(email: string): Promise<StoredUser | null> {
     const result = await this.pool.query<UserRow>(
       `SELECT id, email, username, display_name, password_hash, created_at

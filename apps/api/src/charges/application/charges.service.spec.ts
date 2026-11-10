@@ -7,6 +7,7 @@ import type {
   ContributionRow,
   LockedCircle,
   PaypalPayments,
+  WebhookTransaction,
 } from './ports';
 
 class MemoryCharges implements ChargeRepository {
@@ -17,6 +18,8 @@ class MemoryCharges implements ChargeRepository {
   rows: ContributionRow[] = [];
   events = new Set<string>();
   members = new Set<string>();
+  creditEvents: string[] = [];
+  failCredit = false;
 
   async lockedCircles(): Promise<LockedCircle[]> {
     return this.circles;
@@ -84,19 +87,21 @@ class MemoryCharges implements ChargeRepository {
     }
   }
 
-  async markFailed(id: string): Promise<void> {
+  async markFailed(id: string): Promise<ContributionRow | null> {
     const row = this.rows.find((item) => item.id === id);
 
     if (row?.status === 'pending') {
       row.status = 'failed';
     }
+
+    return row?.status === 'failed' ? row : null;
   }
 
   async markPaid(
     id: string,
     captureId: string | null,
     amountMinor: number,
-  ): Promise<void> {
+  ): Promise<ContributionRow | null> {
     const row = this.rows.find((item) => item.id === id);
 
     if (
@@ -107,6 +112,10 @@ class MemoryCharges implements ChargeRepository {
       row.status = 'paid';
       row.paypalOrderId = row.paypalOrderId ?? captureId;
     }
+
+    return row?.status === 'paid' && row.amountMinor === amountMinor
+      ? row
+      : null;
   }
 
   async markRefunded(id: string): Promise<void> {
@@ -143,6 +152,45 @@ class MemoryCharges implements ChargeRepository {
 
   async isMember(circleId: string, userId: string): Promise<boolean> {
     return this.members.has(`${circleId}:${userId}`);
+  }
+
+  async withWebhookTransaction<T>(
+    work: (transaction: WebhookTransaction) => Promise<T>,
+  ): Promise<T> {
+    const rows = this.rows.map((row) => ({ ...row }));
+    const events = new Set(this.events);
+    const creditEvents = [...this.creditEvents];
+
+    try {
+      return await work({
+        charges: this,
+        credit: {
+          recordPaid: async (input) => {
+            if (this.failCredit) {
+              throw new Error('credit write failed');
+            }
+
+            this.creditEvents.push(
+              `paid:${input.userId}:${input.circleId}:${input.roundNumber}`,
+            );
+          },
+          recordMissed: async (input) => {
+            if (this.failCredit) {
+              throw new Error('credit write failed');
+            }
+
+            this.creditEvents.push(
+              `missed:${input.userId}:${input.circleId}:${input.roundNumber}`,
+            );
+          },
+        },
+      });
+    } catch (error) {
+      this.rows = rows;
+      this.events = events;
+      this.creditEvents = creditEvents;
+      throw error;
+    }
   }
 }
 
@@ -322,6 +370,9 @@ describe('ChargesService', () => {
     expect(await service.receiveWebhook(body, {})).toBe(true);
     expect(await service.receiveWebhook(body, {})).toBe(true);
     expect(repo.rows[0]?.status).toBe('paid');
+    expect(repo.creditEvents).toEqual([
+      'paid:user-1:11111111-1111-4111-8111-111111111111:1',
+    ]);
 
     const view = await service.view(
       {
@@ -356,6 +407,45 @@ describe('ChargesService', () => {
 
     expect(after.potCollectedMinor).toBe(0);
     expect(repo.rows[0]?.status).toBe('refunded');
+  });
+
+  it('rolls back the webhook claim and payment when credit recording fails', async () => {
+    const repo = new MemoryCharges();
+    const paypal = new FakePaypal();
+    const service = new ChargesService(repo, paypal);
+    const contributionId = '22222222-2222-4222-8222-222222222222';
+    repo.rows.push({
+      id: contributionId,
+      circleId: '11111111-1111-4111-8111-111111111111',
+      userId: 'user-1',
+      roundNumber: 1,
+      amountMinor: 2500,
+      status: 'pending',
+      paypalOrderId: 'ORDER-1',
+    });
+    repo.failCredit = true;
+    const body = Buffer.from(
+      JSON.stringify({
+        id: 'WH-ROLLBACK',
+        event_type: 'PAYMENT.CAPTURE.COMPLETED',
+        resource: {
+          id: 'CAPTURE-1',
+          custom_id: contributionId,
+          amount: { value: '25.00' },
+        },
+      }),
+    );
+
+    await expect(service.receiveWebhook(body, {})).rejects.toThrow(
+      'credit write failed',
+    );
+    expect(repo.events.has('WH-ROLLBACK')).toBe(false);
+    expect(repo.rows[0]?.status).toBe('pending');
+
+    repo.failCredit = false;
+    await expect(service.receiveWebhook(body, {})).resolves.toBe(true);
+    expect(repo.rows[0]?.status).toBe('paid');
+    expect(repo.creditEvents).toHaveLength(1);
   });
 
   it('ignores an unverified webhook', async () => {

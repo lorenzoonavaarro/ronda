@@ -8,6 +8,7 @@ export type StoredUser = {
 };
 
 export interface UserRepository {
+  findById(id: string): Promise<StoredUser | null>;
   findByEmail(email: string): Promise<StoredUser | null>;
   findByUsername(username: string): Promise<StoredUser | null>;
   insert(user: StoredUser): Promise<void>;

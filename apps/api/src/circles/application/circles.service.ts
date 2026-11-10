@@ -101,6 +101,21 @@ export class CirclesService {
     return this.present(circle, userId);
   }
 
+  async memberUserId(
+    viewerId: string,
+    circleId: string,
+    username: string,
+  ): Promise<string | null> {
+    if (!isUuid(circleId)) {
+      return null;
+    }
+
+    const circle = await this.circles.findForMember(viewerId, circleId);
+    const member = circle?.members.find((item) => item.username === username);
+
+    return member?.userId ?? null;
+  }
+
   async join(userId: string, body: unknown): Promise<CircleDetail> {
     const token = parseInviteToken(body);
     const circle = await this.circles.findByInviteToken(token);

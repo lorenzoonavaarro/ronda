@@ -17,5 +17,6 @@ import { PaypalController } from './presentation/paypal.controller';
     { provide: PAYPAL_REPOSITORY, useExisting: PgPaypalRepository },
     { provide: PAYPAL_IDENTITY, useExisting: PaypalIdentityClient },
   ],
+  exports: [PaypalService],
 })
 export class PaypalModule {}

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { AuthUser } from '@repo/api';
 
 import {
@@ -14,6 +14,7 @@ import {
   newSessionToken,
   SESSION_TTL_MS,
 } from '../domain/session-token';
+import { SupabaseTokenService } from '../infrastructure/supabase-token.service';
 import {
   PASSWORD_HASHER,
   SESSION_REPOSITORY,
@@ -29,6 +30,13 @@ export type AuthResult = {
   sessionToken: string;
 };
 
+export type SupabaseIdentity = {
+  id: string;
+  email: string;
+  username?: string;
+  displayName?: string;
+};
+
 @Injectable()
 export class AuthService {
   private dummyPasswordHash: string | null = null;
@@ -39,6 +47,7 @@ export class AuthService {
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     @Inject(SESSION_REPOSITORY) private readonly sessions: SessionRepository,
     @Inject(PASSWORD_HASHER) private readonly passwords: PasswordHasher,
+    @Optional() private readonly supabase?: SupabaseTokenService,
   ) {}
 
   async register(body: unknown): Promise<AuthResult> {
@@ -100,6 +109,76 @@ export class AuthService {
     return toAuthUser(session.user);
   }
 
+  async syncSupabaseUser(identity: SupabaseIdentity): Promise<AuthUser> {
+    const existing = await this.users.findById(identity.id);
+
+    if (existing) {
+      return toAuthUser(existing);
+    }
+
+    const username =
+      identity.username?.trim().toLowerCase() ||
+      `member_${identity.id.replaceAll('-', '').slice(0, 16)}`;
+    const displayName = identity.displayName?.trim() || username;
+    const user: StoredUser = {
+      id: identity.id,
+      email: identity.email.trim().toLowerCase(),
+      username,
+      displayName,
+      passwordHash: 'supabase-managed',
+      createdAt: this.clock(),
+    };
+
+    await this.users.insert(user);
+    return toAuthUser(user);
+  }
+
+  async authenticateSupabase(accessToken: string): Promise<AuthUser | null> {
+    if (!this.supabase) {
+      return null;
+    }
+
+    const identity = await this.supabase.userForToken(accessToken);
+
+    if (!identity?.id || !identity.email) {
+      return null;
+    }
+
+    return this.syncSupabaseUser({
+      id: identity.id,
+      email: identity.email,
+      username: metadataString(identity.user_metadata.username),
+      displayName: metadataString(identity.user_metadata.display_name),
+    });
+  }
+
+  async loginWithSupabase(
+    body: unknown,
+  ): Promise<{ accessToken: string; refreshToken: string } | null> {
+    if (!this.supabase) {
+      return null;
+    }
+
+    const input = parseLogin(body);
+    const user = await this.users.findByUsername(input.username);
+
+    if (!user) {
+      return null;
+    }
+
+    const session = await this.supabase.signInWithPassword(
+      user.email,
+      input.password,
+    );
+
+    return session
+      ? {
+          accessToken: session.access_token,
+          refreshToken: session.refresh_token,
+        }
+      : null;
+  }
+
   async logout(sessionToken: string): Promise<void> {
     await this.sessions.deleteByTokenHash(hashSessionToken(sessionToken));
   }
@@ -131,4 +210,10 @@ function toAuthUser(user: StoredUser): AuthUser {
     username: user.username,
     displayName: user.displayName,
   };
+}
+
+function metadataString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0
+    ? value
+    : undefined;
 }

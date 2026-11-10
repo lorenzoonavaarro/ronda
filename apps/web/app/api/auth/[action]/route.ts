@@ -4,6 +4,8 @@ import { apiBase } from '@/lib/http';
 import { safeNextPath } from '@/lib/next-path';
 
 const actions = new Set(['login', 'register', 'logout']);
+const ACCESS_COOKIE = 'ronda_access_token';
+const REFRESH_COOKIE = 'ronda_refresh_token';
 
 export async function POST(
   request: Request,
@@ -22,7 +24,14 @@ export async function POST(
       contentType.includes('multipart/form-data'));
 
   let nextPath: string | null = null;
-  let body: string | undefined;
+  let body:
+    | {
+        username?: string;
+        email?: string;
+        password: string;
+        data?: Record<string, string>;
+      }
+    | undefined;
 
   if (action !== 'logout') {
     if (formPost) {
@@ -34,51 +43,82 @@ export async function POST(
 
       const form = await request.formData();
       nextPath = safeNextPath(field(form.get('next')) || undefined);
-      body = JSON.stringify({
-        username: field(form.get('username')),
-        password: field(form.get('password')),
-        ...(action === 'register'
+      body =
+        action === 'login'
           ? {
-              displayName: field(form.get('displayName')),
-              email: field(form.get('email')),
+              username: field(form.get('username')),
+              password: field(form.get('password')),
             }
-          : {}),
-      });
+          : {
+              email: field(form.get('email')),
+              password: field(form.get('password')),
+              data: {
+                display_name: field(form.get('displayName')),
+                username: field(form.get('username')),
+              },
+            };
     } else {
-      body = await request.text();
+      body = (await request.json()) as typeof body;
     }
   }
 
-  const headers = new Headers();
-  const cookie = request.headers.get('cookie');
-
-  if (cookie) {
-    headers.set('cookie', cookie);
+  if (action === 'logout') {
+    const response = formPost
+      ? seeOther(nextPath ?? '/')
+      : new NextResponse(null, { status: 204 });
+    clearAuthCookies(response);
+    return response;
   }
 
-  if (action !== 'logout') {
-    headers.set('content-type', 'application/json');
+  const supabaseUrl = firstSet(
+    process.env.SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+  );
+  const supabaseKey = firstSet(
+    process.env.SUPABASE_ANON_KEY,
+    process.env.SUPABASE_PUBLISHABLE_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  );
+
+  if (!supabaseUrl || (action === 'register' && !supabaseKey) || !body) {
+    return authFailure(
+      formPost,
+      action,
+      nextPath,
+      'Supabase authentication is not configured.',
+    );
   }
 
+  const endpoint =
+    action === 'login'
+      ? `${apiBase()}/auth/supabase-login`
+      : `${supabaseUrl}/auth/v1/signup`;
   let upstream: Response;
 
   try {
-    upstream = await fetch(`${apiBase()}/auth/${action}`, {
+    upstream = await fetch(endpoint, {
       method: 'POST',
-      headers,
-      body,
+      headers: { 'content-type': 'application/json' },
+      body:
+        action === 'login'
+          ? JSON.stringify({
+              username: body.username,
+              password: body.password,
+            })
+          : JSON.stringify({
+              email: body.email,
+              password: body.password,
+              data: body.data,
+            }),
       cache: 'no-store',
     });
   } catch {
-    if (formPost) {
-      return seeOther(
-        failurePath(action, nextPath, 'The server did not respond. Try again.'),
-      );
-    }
-
-    return NextResponse.json(
-      { message: 'The server did not respond. Try again.' },
-      { status: 502 },
+    return authFailure(
+      formPost,
+      action,
+      nextPath,
+      'The authentication service did not respond. Try again.',
     );
   }
 
@@ -89,7 +129,21 @@ export async function POST(
       return seeOther(failurePath(action, nextPath, messageFrom(payload)));
     }
 
-    return seeOther(nextPath ?? '/', upstream.headers.getSetCookie());
+    const response = seeOther(nextPath ?? '/');
+    const session = sessionFrom(payload);
+
+    if (!session) {
+      return seeOther(
+        failurePath(
+          action,
+          nextPath,
+          'Check your email to confirm your Supabase account, then sign in.',
+        ),
+      );
+    }
+
+    setAuthCookies(response, session);
+    return response;
   }
 
   const response = new NextResponse(payload, {
@@ -100,15 +154,88 @@ export async function POST(
     },
   });
 
-  for (const setCookie of upstream.headers.getSetCookie()) {
-    response.headers.append('set-cookie', setCookie);
+  const session = sessionFrom(payload);
+
+  if (session) {
+    setAuthCookies(response, session);
   }
 
   return response;
 }
 
+function firstSet(...values: (string | undefined)[]): string | undefined {
+  for (const value of values) {
+    const trimmed = value?.trim();
+
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+
+  return undefined;
+}
+
 function field(value: FormDataEntryValue | null): string {
   return typeof value === 'string' ? value : '';
+}
+
+function sessionFrom(payload: ArrayBuffer): {
+  accessToken: string;
+  refreshToken: string;
+} | null {
+  try {
+    const body = JSON.parse(new TextDecoder().decode(payload)) as {
+      access_token?: unknown;
+      refresh_token?: unknown;
+    };
+
+    if (
+      typeof body.access_token !== 'string' ||
+      typeof body.refresh_token !== 'string'
+    ) {
+      return null;
+    }
+
+    return {
+      accessToken: body.access_token,
+      refreshToken: body.refresh_token,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function setAuthCookies(
+  response: NextResponse,
+  session: { accessToken: string; refreshToken: string },
+) {
+  const options = {
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+  };
+
+  response.cookies.set(ACCESS_COOKIE, session.accessToken, options);
+  response.cookies.set(REFRESH_COOKIE, session.refreshToken, options);
+}
+
+function clearAuthCookies(response: NextResponse) {
+  response.cookies.delete(ACCESS_COOKIE);
+  response.cookies.delete(REFRESH_COOKIE);
+}
+
+function authFailure(
+  formPost: boolean,
+  action: string,
+  nextPath: string | null,
+  message: string,
+): NextResponse {
+  if (formPost) {
+    return seeOther(failurePath(action, nextPath, message));
+  }
+
+  return NextResponse.json({ message }, { status: 503 });
 }
 
 function originAllowed(request: Request): boolean {

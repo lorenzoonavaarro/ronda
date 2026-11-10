@@ -15,5 +15,6 @@ import { CirclesController } from './presentation/circles.controller';
     PgCircleRepository,
     { provide: CIRCLE_REPOSITORY, useExisting: PgCircleRepository },
   ],
+  exports: [CirclesService],
 })
 export class CirclesModule {}

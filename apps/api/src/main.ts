@@ -42,7 +42,7 @@ async function bootstrap() {
     origin: allowedOrigins(process.env.WEB_ORIGIN),
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
   await app.listen(process.env.PORT ?? 3000);
 }

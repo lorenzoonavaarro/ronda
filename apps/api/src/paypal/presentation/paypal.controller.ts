@@ -11,7 +11,6 @@ import type { PaypalLinkStatus } from '@repo/api';
 import type { Request, Response } from 'express';
 
 import { AuthService } from '../../auth/application/auth.service';
-import { SESSION_COOKIE } from '../../auth/domain/session-token';
 import {
   SessionGuard,
   type AuthenticatedRequest,
@@ -98,9 +97,12 @@ export class PaypalController {
     const clearState = () => {
       response.clearCookie(STATE_COOKIE, cookieOptions());
     };
-    const sessionToken = readCookie(request.headers.cookie, SESSION_COOKIE);
+    const sessionToken = readCookie(
+      request.headers.cookie,
+      'ronda_access_token',
+    );
     const user = sessionToken
-      ? await this.auth.authenticate(sessionToken)
+      ? await this.auth.authenticateSupabase(sessionToken)
       : null;
 
     if (!user) {

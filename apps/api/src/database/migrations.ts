@@ -11,7 +11,7 @@ export const migrations: { id: string; sql: string }[] = [
         id uuid PRIMARY KEY,
         email text NOT NULL UNIQUE,
         display_name text NOT NULL,
-        password_hash text NOT NULL,
+        password_hash text NOT NULL DEFAULT 'supabase-managed',
         created_at timestamptz NOT NULL
       );
 
@@ -204,6 +204,88 @@ export const migrations: { id: string; sql: string }[] = [
         id text PRIMARY KEY,
         received_at timestamptz NOT NULL DEFAULT now()
       );
+    `,
+  },
+  {
+    id: '009_credit_events',
+    sql: `
+      CREATE TABLE IF NOT EXISTS credit_events (
+        id uuid PRIMARY KEY,
+        user_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+        circle_id uuid NOT NULL REFERENCES circles (id) ON DELETE CASCADE,
+        round_number integer NOT NULL CHECK (round_number >= 0),
+        event_type text NOT NULL CHECK (
+          event_type IN (
+            'contribution_paid',
+            'contribution_missed',
+            'circle_completed',
+            'pot_defaulted'
+          )
+        ),
+        points integer NOT NULL CHECK (
+          (event_type = 'contribution_paid' AND points = 10)
+          OR (event_type = 'contribution_missed' AND points = -15)
+          OR (event_type = 'circle_completed' AND points = 20)
+          OR (event_type = 'pot_defaulted' AND points = -40)
+        ),
+        occurred_on date NOT NULL,
+        UNIQUE (user_id, circle_id, round_number, event_type)
+      );
+
+      INSERT INTO credit_events (
+        id, user_id, circle_id, round_number, event_type, points, occurred_on
+      )
+      SELECT gen_random_uuid(),
+             user_id,
+             circle_id,
+             round_number,
+             'contribution_paid',
+             10,
+             COALESCE((paid_at AT TIME ZONE 'UTC')::date, CURRENT_DATE)
+      FROM contributions
+      WHERE status = 'paid'
+      ON CONFLICT (user_id, circle_id, round_number, event_type) DO NOTHING;
+
+      INSERT INTO credit_events (
+        id, user_id, circle_id, round_number, event_type, points, occurred_on
+      )
+      SELECT gen_random_uuid(),
+             user_id,
+             circle_id,
+             round_number,
+             'contribution_missed',
+             -15,
+             CURRENT_DATE
+      FROM contributions
+      WHERE status = 'failed'
+      ON CONFLICT (user_id, circle_id, round_number, event_type) DO NOTHING;
+
+      INSERT INTO credit_events (
+        id, user_id, circle_id, round_number, event_type, points, occurred_on
+      )
+      SELECT gen_random_uuid(),
+             paid.user_id,
+             paid.circle_id,
+             0,
+             'circle_completed',
+             20,
+             CURRENT_DATE
+      FROM (
+        SELECT user_id, circle_id, count(*) AS paid_rounds
+        FROM contributions
+        WHERE status = 'paid'
+        GROUP BY user_id, circle_id
+      ) AS paid
+      JOIN circles ON circles.id = paid.circle_id
+      WHERE paid.paid_rounds = circles.members_required
+        AND NOT EXISTS (
+          SELECT 1
+          FROM contributions missed
+          WHERE missed.circle_id = paid.circle_id
+            AND missed.user_id = paid.user_id
+            AND missed.status = 'failed'
+        )
+      ON CONFLICT (user_id, circle_id, round_number, event_type) DO NOTHING;
     `,
   },
 ];

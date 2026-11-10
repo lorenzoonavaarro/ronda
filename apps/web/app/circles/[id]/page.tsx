@@ -14,7 +14,10 @@ import {
   CardTitle,
 } from '@repo/ui/components/card';
 
-import { getCircle, getCurrentUser } from '../../../lib/api';
+import { CreditSummary } from '@/components/dashboard/credit-summary';
+import { TreasurerPanel } from '@/components/dashboard/treasurer-panel';
+
+import { getCircle, getCredit, getCurrentUser } from '../../../lib/api';
 import { formatUsd } from '../../../lib/money';
 
 export const dynamic = 'force-dynamic';
@@ -43,6 +46,7 @@ export default async function CircleDetailPage({
   const noticeKey = typeof query.charges === 'string' ? query.charges : '';
   const notice = chargeNotices[noticeKey];
   const circle = await getCircle(id);
+  const credit = await getCredit();
 
   if (!circle) {
     notFound();
@@ -191,6 +195,18 @@ export default async function CircleDetailPage({
         <div className="grid content-start gap-4">
           <Card>
             <CardHeader>
+              <CardTitle>Treasurer</CardTitle>
+              <CardDescription>
+                Asks about this circle's charges, score, and whether the round
+                can be paid out. A payout proposal does not send money.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TreasurerPanel circleId={circle.id} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
               <CardTitle>Invitation</CardTitle>
               <CardDescription>
                 {locked
@@ -209,6 +225,20 @@ export default async function CircleDetailPage({
               </p>
             </CardContent>
           </Card>
+          {credit ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Credit</CardTitle>
+                <CardDescription>
+                  One score for you, across every circle. This circle keeps its
+                  own streak.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CreditSummary credit={credit} circleId={circle.id} />
+              </CardContent>
+            </Card>
+          ) : null}
           <Card>
             <CardHeader>
               <CardTitle>Yield</CardTitle>

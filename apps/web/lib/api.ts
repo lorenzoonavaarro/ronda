@@ -4,15 +4,16 @@ import type {
   AuthUser,
   CircleDetail,
   CircleSummary,
+  CreditRecord,
   PaypalLinkStatus,
 } from '@repo/api';
 
 import { apiBase } from './http';
 
 async function sessionCookie(): Promise<string | null> {
-  const session = (await cookies()).get('ronda_session')?.value;
+  const session = (await cookies()).get('ronda_access_token')?.value;
 
-  return session ? `ronda_session=${session}` : null;
+  return session ? `ronda_access_token=${session}` : null;
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
@@ -78,6 +79,25 @@ export async function getCircle(id: string): Promise<CircleDetail | null> {
   }
 
   return (await response.json()) as CircleDetail;
+}
+
+export async function getCredit(): Promise<CreditRecord | null> {
+  const cookie = await sessionCookie();
+
+  if (!cookie) {
+    return null;
+  }
+
+  const response = await fetch(`${apiBase()}/credit`, {
+    headers: { cookie },
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error('Could not load the credit score.');
+  }
+
+  return (await response.json()) as CreditRecord;
 }
 
 export async function getPaypalLink(): Promise<PaypalLinkStatus> {

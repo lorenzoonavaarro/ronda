@@ -12,7 +12,6 @@ import type { RawBodyRequest } from '@nestjs/common';
 import type { Request, Response } from 'express';
 
 import { AuthService } from '../../auth/application/auth.service';
-import { SESSION_COOKIE } from '../../auth/domain/session-token';
 import { readCookie } from '../../auth/presentation/session-cookie';
 import { pageOrigin } from '../../paypal/domain/paypal-config';
 import { ChargesService } from '../application/charges.service';
@@ -43,9 +42,12 @@ export class ChargesController {
     }
 
     const circleId = isUuid(circle) ? circle : null;
-    const sessionToken = readCookie(request.headers.cookie, SESSION_COOKIE);
+    const sessionToken = readCookie(
+      request.headers.cookie,
+      'ronda_access_token',
+    );
     const user = sessionToken
-      ? await this.auth.authenticate(sessionToken)
+      ? await this.auth.authenticateSupabase(sessionToken)
       : null;
 
     if (!user) {
@@ -106,9 +108,12 @@ export class ChargesController {
       response.clearCookie(SETUP_COOKIE, cookieOptions());
       response.clearCookie(CIRCLE_COOKIE, cookieOptions());
     };
-    const sessionToken = readCookie(request.headers.cookie, SESSION_COOKIE);
+    const sessionToken = readCookie(
+      request.headers.cookie,
+      'ronda_access_token',
+    );
     const user = sessionToken
-      ? await this.auth.authenticate(sessionToken)
+      ? await this.auth.authenticateSupabase(sessionToken)
       : null;
     const circleId = readCookie(request.headers.cookie, CIRCLE_COOKIE);
 
@@ -184,9 +189,12 @@ export class ChargesController {
   }
 
   private async userId(request: Request): Promise<string> {
-    const sessionToken = readCookie(request.headers.cookie, SESSION_COOKIE);
+    const sessionToken = readCookie(
+      request.headers.cookie,
+      'ronda_access_token',
+    );
     const user = sessionToken
-      ? await this.auth.authenticate(sessionToken)
+      ? await this.auth.authenticateSupabase(sessionToken)
       : null;
 
     return user?.id ?? '';

@@ -28,8 +28,10 @@ class MemoryUsers implements UserRepository {
     return this.byUsername.get(username) ?? null;
   }
 
-  findById(id: string): StoredUser | undefined {
-    return [...this.byUsername.values()].find((entry) => entry.id === id);
+  async findById(id: string): Promise<StoredUser | null> {
+    return (
+      [...this.byUsername.values()].find((entry) => entry.id === id) ?? null
+    );
   }
 
   async insert(user: StoredUser): Promise<void> {
@@ -59,7 +61,7 @@ class MemorySessions implements SessionRepository {
     tokenHash: string;
     expiresAt: Date;
   }): Promise<void> {
-    const user = this.users.findById(input.userId);
+    const user = await this.users.findById(input.userId);
 
     if (!user) {
       throw new Error('User missing for session');

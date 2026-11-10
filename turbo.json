@@ -11,7 +11,8 @@
     "PAYPAL_CLIENT_ID",
     "PAYPAL_CLIENT_SECRET",
     "PAYPAL_RETURN_URL",
-    "PAYPAL_WEBHOOK_ID"
+    "PAYPAL_WEBHOOK_ID",
+    "XAI_API_KEY"
   ],
   "tasks": {
     "build": {

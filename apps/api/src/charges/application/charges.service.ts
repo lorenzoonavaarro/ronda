@@ -1,8 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type { IncomingHttpHeaders } from 'node:http';
 
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { ContributionStatus } from '@repo/api';
+
+import {
+  CREDIT_RECORDER,
+  type CreditRecorder,
+} from '../../credit/application/ports';
 
 import { PaypalPaymentError, PaypalVaultError } from '../domain/errors';
 import {
@@ -16,6 +21,7 @@ import {
   type ChargeRepository,
   type ContributionRow,
   type PaypalPayments,
+  type WebhookTransaction,
 } from './ports';
 
 export type ChargeView = {
@@ -30,6 +36,9 @@ export class ChargesService {
   constructor(
     @Inject(CHARGE_REPOSITORY) private readonly charges: ChargeRepository,
     @Inject(PAYPAL_PAYMENTS) private readonly paypal: PaypalPayments,
+    @Optional()
+    @Inject(CREDIT_RECORDER)
+    private readonly credit?: CreditRecorder,
   ) {}
 
   async view(
@@ -170,38 +179,63 @@ export class ChargesService {
       return true;
     }
 
-    const fresh = await this.charges.recordEvent(eventId);
-
-    if (!fresh) {
-      return true;
-    }
-
     const resource = record.resource;
 
-    if (!resource || typeof resource !== 'object') {
+    return this.charges.withWebhookTransaction(async (transaction) => {
+      // Claim inside the transaction. A failure rolls this claim back so
+      // PayPal can retry the event.
+      if (!(await transaction.charges.recordEvent(eventId))) {
+        return true;
+      }
+
+      if (!resource || typeof resource !== 'object') {
+        return true;
+      }
+
+      const contributionId = readContributionId(resource);
+
+      if (!contributionId) {
+        return true;
+      }
+
+      await this.processWebhookTransition(
+        transaction,
+        eventType,
+        contributionId,
+        resource,
+      );
       return true;
-    }
+    });
+  }
 
-    const contributionId = readContributionId(resource);
-
-    if (!contributionId) {
-      return true;
-    }
-
+  private async processWebhookTransition(
+    transaction: WebhookTransaction,
+    eventType: string,
+    contributionId: string,
+    resource: object,
+  ): Promise<void> {
     if (eventType === 'PAYMENT.CAPTURE.COMPLETED') {
       const amount = readAmountMinor(resource);
       const captureId = readId(resource);
 
       if (amount !== null) {
-        await this.charges.markPaid(contributionId, captureId, amount);
+        await this.notePaid(
+          await transaction.charges.markPaid(
+            contributionId,
+            captureId,
+            amount,
+          ),
+          transaction.credit,
+        );
       }
     } else if (eventType === 'PAYMENT.CAPTURE.DENIED') {
-      await this.charges.markFailed(contributionId);
+      await this.noteMissed(
+        await transaction.charges.markFailed(contributionId),
+        transaction.credit,
+      );
     } else if (eventType === 'PAYMENT.CAPTURE.REFUNDED') {
-      await this.charges.markRefunded(contributionId);
+      await transaction.charges.markRefunded(contributionId);
     }
-
-    return true;
   }
 
   private async chargeMember(
@@ -235,7 +269,7 @@ export class ChargesService {
     const vaultId = await this.charges.paymentTokenFor(userId);
 
     if (!vaultId) {
-      await this.charges.markFailed(id);
+      await this.noteMissed(await this.charges.markFailed(id));
       return;
     }
 
@@ -249,9 +283,39 @@ export class ChargesService {
       await this.charges.saveOrderId(id, order.orderId);
     } catch (error) {
       if (error instanceof PaypalPaymentError && !error.retryable) {
-        await this.charges.markFailed(id);
+        await this.noteMissed(await this.charges.markFailed(id));
       }
     }
+  }
+
+  private async notePaid(
+    row: ContributionRow | null,
+    credit = this.credit,
+  ): Promise<void> {
+    if (!credit || row?.status !== 'paid') {
+      return;
+    }
+
+    await credit.recordPaid({
+      userId: row.userId,
+      circleId: row.circleId,
+      roundNumber: row.roundNumber,
+    });
+  }
+
+  private async noteMissed(
+    row: ContributionRow | null,
+    credit = this.credit,
+  ): Promise<void> {
+    if (!credit || row?.status !== 'failed') {
+      return;
+    }
+
+    await credit.recordMissed({
+      userId: row.userId,
+      circleId: row.circleId,
+      roundNumber: row.roundNumber,
+    });
   }
 }
 

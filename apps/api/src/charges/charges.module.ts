@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
+import { CreditModule } from '../credit/credit.module';
 import { ChargesService } from './application/charges.service';
 import {
   CHARGE_READER,
@@ -13,7 +14,7 @@ import { ChargeScheduler } from './presentation/charge-scheduler';
 import { ChargesController } from './presentation/charges.controller';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, CreditModule],
   controllers: [ChargesController],
   providers: [
     ChargesService,

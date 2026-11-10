@@ -10,7 +10,9 @@ import {
 } from '@repo/ui/components/card';
 import { redirect } from 'next/navigation';
 
-import { getCurrentUser, getPaypalLink } from '../../lib/api';
+import { CreditSummary } from '@/components/dashboard/credit-summary';
+
+import { getCredit, getCurrentUser, getPaypalLink } from '../../lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,6 +41,7 @@ export default async function SettingsPage({
   const noticeKey = typeof params.paypal === 'string' ? params.paypal : '';
   const notice = notices[noticeKey];
   const paypal = await getPaypalLink();
+  const credit = await getCredit();
   const account = paypal.account;
 
   return (
@@ -48,8 +51,8 @@ export default async function SettingsPage({
           <CardHeader>
             <CardTitle>Account</CardTitle>
             <CardDescription>
-              You sign in with your username. PayPal is only the account that
-              will send and receive circle money.
+              You sign in with your email through Supabase. PayPal is only the
+              account that will send and receive circle money.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -65,12 +68,27 @@ export default async function SettingsPage({
             </dl>
           </CardContent>
         </Card>
+        {credit ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Credit</CardTitle>
+              <CardDescription>
+                Confirmed on-time rounds add 10. A missed round subtracts 15 and
+                sets that circle&apos;s streak back to zero. Finishing a circle
+                with every round paid adds 20.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CreditSummary credit={credit} />
+            </CardContent>
+          </Card>
+        ) : null}
         <Card>
           <CardHeader>
             <CardTitle>PayPal</CardTitle>
             <CardDescription>
               Link the PayPal account Ronda should use for contributions and
-              payouts. This does not replace your username login.
+              payouts. This does not replace your Supabase login.
               {paypal.environment
                 ? ` This connection uses the ${paypal.environment} environment.`
                 : ''}
