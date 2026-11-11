@@ -2,8 +2,6 @@ import { Show, SignInButton, SignUpButton } from '@clerk/nextjs';
 import { auth } from '@clerk/nextjs/server';
 import { Suspense } from 'react';
 
-import { DashboardShell } from '@/components/dashboard/dashboard-shell';
-import { Overview } from '@/components/dashboard/overview';
 import { SignedInOverviewRefresh } from '@/components/signed-in-overview-refresh';
 import { buttonVariants } from '@repo/ui/components/button';
 import {
@@ -14,7 +12,7 @@ import {
   CardTitle,
 } from '@repo/ui/components/card';
 
-import { getCircles, getCurrentUser } from '../lib/api';
+import { getCurrentUser } from '../lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,11 +73,7 @@ export default async function Home() {
     );
   }
 
-  const circles = await getCircles();
+  const { SignedInHome } = await import('./signed-in-home');
 
-  return (
-    <DashboardShell title="Overview" user={user}>
-      <Overview circles={circles} />
-    </DashboardShell>
-  );
+  return <SignedInHome />;
 }

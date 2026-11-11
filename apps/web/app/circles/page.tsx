@@ -6,12 +6,12 @@ import { getCircles, requireUser } from '../../lib/api';
 export const dynamic = 'force-dynamic';
 
 export default async function CirclesPage() {
-  const user = await requireUser();
+  await requireUser();
 
   const circles = await getCircles();
 
   return (
-    <DashboardShell title="Circles" user={user}>
+    <DashboardShell title="Circles">
       <CircleList circles={circles} searchable />
     </DashboardShell>
   );

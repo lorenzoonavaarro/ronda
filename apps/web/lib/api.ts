@@ -10,6 +10,8 @@ import type {
 
 import { apiBase } from './http';
 
+const tokenCache = new Map<string, { token: string; until: number }>();
+
 async function sessionHeaders(): Promise<HeadersInit | null> {
   const session = await auth();
 
@@ -17,9 +19,41 @@ async function sessionHeaders(): Promise<HeadersInit | null> {
     return null;
   }
 
-  const token = await session.getToken();
+  const token = await apiSessionToken(session);
 
   return token ? { Authorization: `Bearer ${token}` } : null;
+}
+
+async function apiSessionToken(session: {
+  sessionId: string;
+  getToken: (options?: { expiresInSeconds?: number }) => Promise<string | null>;
+}): Promise<string | null> {
+  const cached = tokenCache.get(session.sessionId);
+  const now = Date.now();
+
+  if (cached && cached.until > now) {
+    return cached.token;
+  }
+
+  // The cookie session token can omit a usable party. A short-lived token
+  // from this session is the one the API already accepts.
+  let minted: string | null = null;
+
+  try {
+    minted = await session.getToken({ expiresInSeconds: 60 });
+  } catch {
+    minted = null;
+  }
+
+  const token = minted ?? (await session.getToken());
+
+  if (!token) {
+    console.error('Signed-in session has no token for the API.');
+    return null;
+  }
+
+  tokenCache.set(session.sessionId, { token, until: now + 45_000 });
+  return token;
 }
 
 export async function requireUser(): Promise<AuthUser> {
@@ -47,6 +81,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     });
 
     if (!response.ok) {
+      console.error(`Account lookup failed with status ${response.status}.`);
       return null;
     }
 

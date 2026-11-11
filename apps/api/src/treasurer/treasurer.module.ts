@@ -6,7 +6,7 @@ import { CreditModule } from '../credit/credit.module';
 import { PaypalModule } from '../paypal/paypal.module';
 import { TreasurerService } from './application/treasurer.service';
 import { TREASURER_MODEL } from './application/ports';
-import { XaiTreasurerModel } from './infrastructure/xai-treasurer-model';
+import { AstroTreasurerModel } from './infrastructure/astro-treasurer-model';
 import { TreasurerController } from './presentation/treasurer.controller';
 
 @Module({
@@ -14,8 +14,8 @@ import { TreasurerController } from './presentation/treasurer.controller';
   controllers: [TreasurerController],
   providers: [
     TreasurerService,
-    XaiTreasurerModel,
-    { provide: TREASURER_MODEL, useExisting: XaiTreasurerModel },
+    AstroTreasurerModel,
+    { provide: TREASURER_MODEL, useExisting: AstroTreasurerModel },
   ],
 })
 export class TreasurerModule {}

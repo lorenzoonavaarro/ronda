@@ -7,9 +7,6 @@ import { PaypalModule } from './paypal/paypal.module';
 import { TreasurerModule } from './treasurer/treasurer.module';
 import { PayoutsModule } from './payouts/payouts.module';
 
-import { AppService } from './app.service';
-import { AppController } from './app.controller';
-
 @Module({
   imports: [
     DatabaseModule,
@@ -19,7 +16,7 @@ import { AppController } from './app.controller';
     TreasurerModule,
     PayoutsModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [],
+  providers: [],
 })
 export class AppModule {}

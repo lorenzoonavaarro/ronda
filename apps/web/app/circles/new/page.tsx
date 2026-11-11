@@ -13,10 +13,10 @@ import { requireUser } from '../../../lib/api';
 export const dynamic = 'force-dynamic';
 
 export default async function NewCirclePage() {
-  const user = await requireUser();
+  await requireUser();
 
   return (
-    <DashboardShell title="New circle" user={user}>
+    <DashboardShell title="New circle">
       <Card className="mx-4 max-w-xl lg:mx-6">
         <CardHeader>
           <CardTitle>Create a circle</CardTitle>

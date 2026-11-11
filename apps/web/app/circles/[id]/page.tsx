@@ -36,7 +36,7 @@ export default async function CircleDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ charges?: string | string[] }>;
 }) {
-  const user = await requireUser();
+  await requireUser();
   const { id } = await params;
   const query = await searchParams;
   const noticeKey = typeof query.charges === 'string' ? query.charges : '';
@@ -67,7 +67,7 @@ export default async function CircleDetailPage({
       : Math.round((paidMembers / circle.members.length) * 100);
 
   return (
-    <DashboardShell title={circle.name} user={user}>
+    <DashboardShell title={circle.name}>
       <div className="grid gap-4 px-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:px-6">
         <div className="grid gap-4">
           <Card>

@@ -1,15 +1,5 @@
 'use client';
 
-import type { AuthUser } from '@repo/api';
-import { Avatar, AvatarFallback } from '@repo/ui/components/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@repo/ui/components/dropdown-menu';
 import { Separator } from '@repo/ui/components/separator';
 import {
   Sidebar,
@@ -24,13 +14,11 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
-  useSidebar,
 } from '@repo/ui/components/sidebar';
 import { TooltipProvider } from '@repo/ui/components/tooltip';
 import { UserButton } from '@clerk/nextjs';
 import {
   CirclePlusIcon,
-  EllipsisVerticalIcon,
   LayoutDashboardIcon,
   Settings2Icon,
   UsersIcon,
@@ -39,23 +27,15 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { CSSProperties, ReactNode } from 'react';
 
-import { LogoutButton } from '../logout-button';
-
 const nav = [
   { href: '/', label: 'Overview', icon: LayoutDashboardIcon },
   { href: '/circles', label: 'Circles', icon: UsersIcon },
 ];
 
-const secondaryNav = [
-  { href: '/settings', label: 'Settings', icon: Settings2Icon },
-];
-
 export function DashboardShell({
-  user,
   title,
   children,
 }: {
-  user: AuthUser;
   title: string;
   children: ReactNode;
 }) {
@@ -115,27 +95,9 @@ export function DashboardShell({
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
-            <SidebarGroup className="mt-auto">
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {secondaryNav.map((item) => (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton
-                        isActive={pathname === item.href}
-                        tooltip={item.label}
-                        render={<Link href={item.href} />}
-                      >
-                        <item.icon />
-                        <span>{item.label}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
           </SidebarContent>
           <SidebarFooter>
-            <NavUser user={user} />
+            <AccountMenu />
           </SidebarFooter>
         </Sidebar>
         <SidebarInset>
@@ -147,9 +109,6 @@ export function DashboardShell({
                 className="mx-2 h-4 data-vertical:self-auto"
               />
               <h1 className="text-base font-medium">{title}</h1>
-              <div className="ml-auto">
-                <UserButton />
-              </div>
             </div>
           </header>
           <div className="flex flex-1 flex-col">
@@ -165,80 +124,34 @@ export function DashboardShell({
   );
 }
 
-function NavUser({ user }: { user: AuthUser }) {
-  const { isMobile } = useSidebar();
-
+function AccountMenu() {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <SidebarMenuButton size="lg" className="aria-expanded:bg-muted" />
-            }
+        <div className="px-1 py-1">
+          <UserButton
+            showName
+            appearance={{
+              elements: {
+                rootBox: 'w-full',
+                userButtonTrigger:
+                  'w-full justify-start rounded-md px-2 py-1.5',
+                userButtonBox: 'w-full flex-row',
+              },
+            }}
           >
-            <Avatar className="size-8 rounded-lg">
-              <AvatarFallback className="rounded-lg">
-                {initials(user.displayName)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-medium">{user.displayName}</span>
-              <span className="truncate text-xs text-muted-foreground">
-                {user.username}
-              </span>
-            </div>
-            <EllipsisVerticalIcon className="ml-auto size-4" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="min-w-56"
-            side={isMobile ? 'bottom' : 'right'}
-            align="end"
-            sideOffset={4}
-          >
-            <DropdownMenuGroup>
-              <DropdownMenuLabel className="p-0 font-normal">
-                <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                  <Avatar className="size-8 rounded-lg">
-                    <AvatarFallback className="rounded-lg">
-                      {initials(user.displayName)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-medium">
-                      {user.displayName}
-                    </span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {user.username}
-                    </span>
-                  </div>
-                </div>
-              </DropdownMenuLabel>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <LogoutButton menu />
-          </DropdownMenuContent>
-        </DropdownMenu>
+            <UserButton.MenuItems>
+              <UserButton.Link
+                href="/settings"
+                label="Credit & PayPal"
+                labelIcon={<Settings2Icon className="size-4" />}
+              />
+              <UserButton.Action label="manageAccount" />
+              <UserButton.Action label="signOut" />
+            </UserButton.MenuItems>
+          </UserButton>
+        </div>
       </SidebarMenuItem>
     </SidebarMenu>
   );
-}
-
-function initials(name: string): string {
-  const parts = name
-    .trim()
-    .split(/\s+/)
-    .filter((part) => part.length > 0);
-  const first = parts[0];
-  const second = parts[1];
-
-  if (!first) {
-    return '?';
-  }
-
-  if (!second) {
-    return first.slice(0, 2).toUpperCase();
-  }
-
-  return `${first.charAt(0)}${second.charAt(0)}`.toUpperCase();
 }

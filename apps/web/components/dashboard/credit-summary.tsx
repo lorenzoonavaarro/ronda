@@ -1,5 +1,11 @@
 import type { CreditEvent, CreditRecord } from '@repo/api';
 
+const rules = [
+  { label: 'On time', value: '+10' },
+  { label: 'Missed', value: '−15' },
+  { label: 'Circle finished', value: '+20' },
+];
+
 export function CreditSummary({
   credit,
   circleId,
@@ -15,59 +21,77 @@ export function CreditSummary({
     : credit.events;
 
   return (
-    <div className="grid gap-4">
-      <dl className="grid gap-3 text-sm sm:grid-cols-2">
+    <div className="grid gap-5">
+      <div className="flex items-end justify-between gap-4">
         <div>
-          <dt className="text-muted-foreground">Score</dt>
-          <dd className="text-2xl font-semibold tabular-nums">
+          <p className="text-sm text-muted-foreground">Score</p>
+          <p className="text-4xl font-semibold tabular-nums tracking-tight">
             {credit.points}
-          </dd>
+          </p>
         </div>
         {membership ? (
-          <div>
-            <dt className="text-muted-foreground">Streak in this circle</dt>
-            <dd className="text-2xl font-semibold tabular-nums">
+          <div className="text-right">
+            <p className="text-sm text-muted-foreground">Streak</p>
+            <p className="text-3xl font-semibold tabular-nums">
               {membership.streak}
-            </dd>
+            </p>
           </div>
         ) : null}
+      </div>
+      <dl className="grid grid-cols-3 gap-2 text-sm">
+        {rules.map((rule) => (
+          <div key={rule.label} className="rounded-lg bg-muted/60 px-3 py-2">
+            <dt className="text-muted-foreground">{rule.label}</dt>
+            <dd className="font-medium tabular-nums">{rule.value}</dd>
+          </div>
+        ))}
       </dl>
       {!circleId && credit.memberships.length > 0 ? (
-        <div className="grid gap-2 text-sm">
-          {credit.memberships.map((item) => (
-            <div
-              key={item.circleId}
-              className="flex items-center justify-between gap-3"
-            >
-              <p className="font-medium">{item.circleName}</p>
-              <p className="text-muted-foreground">Streak {item.streak}</p>
-            </div>
-          ))}
+        <div className="grid gap-2">
+          <p className="text-sm font-medium">Streaks</p>
+          <ul className="grid gap-2">
+            {credit.memberships.map((item) => (
+              <li
+                key={item.circleId}
+                className="flex items-center justify-between gap-3 text-sm"
+              >
+                <span className="truncate font-medium">{item.circleName}</span>
+                <span className="shrink-0 tabular-nums text-muted-foreground">
+                  {item.streak}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
-      <div className="grid gap-2 text-sm">
+      <div className="grid gap-2">
+        <p className="text-sm font-medium">Recent changes</p>
         {events.length === 0 ? (
-          <p className="text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             No contribution has changed this score yet.
           </p>
         ) : (
-          events.map((event) => (
-            <div
-              key={`${event.circleId}:${event.eventType}:${event.roundNumber ?? 0}`}
-              className="flex items-start justify-between gap-3"
-            >
-              <div>
-                <p className="font-medium">{eventLabel(event)}</p>
-                <p className="text-muted-foreground">
-                  {circleId ? '' : `${event.circleName} · `}
-                  {formatUtcDate(event.occurredOn)}
+          <ul className="grid gap-2">
+            {events.map((event) => (
+              <li
+                key={`${event.circleId}:${event.eventType}:${event.roundNumber ?? 0}`}
+                className="flex items-start justify-between gap-3 border-t border-border/70 pt-2 text-sm first:border-t-0 first:pt-0"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium">{eventLabel(event)}</p>
+                  <p className="truncate text-muted-foreground">
+                    {circleId ? '' : `${event.circleName} · `}
+                    {formatUtcDate(event.occurredOn)}
+                  </p>
+                </div>
+                <p
+                  className={`shrink-0 font-medium tabular-nums ${pointsClass(event.points)}`}
+                >
+                  {formatPoints(event.points)}
                 </p>
-              </div>
-              <p className="font-medium tabular-nums">
-                {formatPoints(event.points)}
-              </p>
-            </div>
-          ))
+              </li>
+            ))}
+          </ul>
         )}
       </div>
       <p className="text-sm text-muted-foreground">
@@ -96,6 +120,14 @@ function eventLabel(event: CreditEvent): string {
 
 function formatPoints(points: number): string {
   return points > 0 ? `+${points}` : String(points);
+}
+
+function pointsClass(points: number): string {
+  if (points < 0) {
+    return 'text-destructive';
+  }
+
+  return 'text-foreground';
 }
 
 function formatUtcDate(value: string): string {

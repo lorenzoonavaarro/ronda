@@ -68,7 +68,7 @@ export default async function JoinPage({
   }
 
   return (
-    <DashboardShell title="Join circle" user={user}>
+    <DashboardShell title="Join circle">
       <div className="px-4 lg:px-6">
         <div className="grid max-w-lg gap-4">
           <p className="text-sm text-muted-foreground">

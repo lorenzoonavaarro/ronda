@@ -8,7 +8,10 @@ import type { Request } from 'express';
 
 import type { ClerkIdentity } from '../domain/clerk-identity';
 import { ClerkNotConfiguredError } from '../domain/errors';
-import { sessionPartyAllowed } from '../domain/session-party';
+import {
+  sessionParty,
+  sessionPartyAllowed,
+} from '../domain/session-party';
 import { readCookie } from '../presentation/session-cookie';
 
 const RONDA_CLERK_COOKIE = 'ronda_clerk';
@@ -95,10 +98,17 @@ export class ClerkTokenService {
     for (const token of explicitTokens(request)) {
       try {
         const claims = await verifyToken(token, { secretKey });
+        const parties = authorizedParties();
 
-        if (!sessionPartyAllowed(claims.azp, authorizedParties())) {
+        if (!sessionPartyAllowed(claims.azp, parties)) {
           this.logger.warn('Clerk session rejected: authorized party not allowed');
           continue;
+        }
+
+        if (sessionParty(claims.azp, parties) === 'unexpected') {
+          this.logger.warn(
+            `Clerk session party is outside the web allow-list (${partyOrigin(claims.azp)})`,
+          );
         }
 
         if (typeof claims.sub === 'string' && claims.sub.length > 0) {
@@ -149,6 +159,20 @@ function toWebRequest(request: Request): globalThis.Request {
   }
 
   return new Request(url, { method: request.method, headers });
+}
+
+function partyOrigin(azp: unknown): string {
+  if (typeof azp !== 'string') {
+    return 'missing';
+  }
+
+  const trimmed = azp.trim();
+
+  if (/^https?:\/\/\S{1,200}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  return 'unrecognized';
 }
 
 function authorizedParties(): string[] {
