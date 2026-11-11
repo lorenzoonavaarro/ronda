@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { interestMinor, projectCircleYield } from './yield-simulator.ts';
+import { interestMinor, projectCircleYield } from './yield-simulator';
 
 const members = [
   {
@@ -77,8 +77,18 @@ test('gives a leftover cent to the latest turn and clamps short months', () => {
     membersRequired: 2,
     asOf: '2026-03-07',
     members: [
-      members[0],
-      members[1],
+      {
+        displayName: 'Lorenzo',
+        username: 'lorenzonavarro',
+        payoutPosition: 1,
+        contributionStatus: 'paid' as const,
+      },
+      {
+        displayName: 'Valentin',
+        username: 'valentin',
+        payoutPosition: 2,
+        contributionStatus: 'paid' as const,
+      },
       {
         displayName: 'Ada',
         username: 'ada',

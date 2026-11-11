@@ -299,6 +299,9 @@ importers:
       '@clerk/ui':
         specifier: ^1.42.4
         version: 1.42.4(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@8.1.1)
+      '@repo/api':
+        specifier: workspace:*
+        version: link:../../packages/api
       '@repo/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -330,9 +333,6 @@ importers:
         specifier: ^1.4.0
         version: 1.4.0
     devDependencies:
-      '@repo/api':
-        specifier: workspace:*
-        version: link:../../packages/api
       '@repo/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
