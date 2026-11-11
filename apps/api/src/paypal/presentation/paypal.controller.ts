@@ -57,9 +57,24 @@ export class PaypalController {
   }
 
   @Get('link')
+  @UseGuards(SessionGuard)
+  linkFromGet(
+    @Req() request: AuthenticatedRequest,
+    @Res() response: Response,
+  ): void {
+    this.startLink(request, response);
+  }
+
   @Post('link')
   @UseGuards(SessionGuard)
-  link(@Req() request: AuthenticatedRequest, @Res() response: Response): void {
+  linkFromPost(
+    @Req() request: AuthenticatedRequest,
+    @Res() response: Response,
+  ): void {
+    this.startLink(request, response);
+  }
+
+  private startLink(request: AuthenticatedRequest, response: Response): void {
     try {
       const started = this.paypal.beginLink();
       rememberFlowActor(response, request.user.id);

@@ -35,11 +35,27 @@ export class ChargesController {
   ) {}
 
   @Get('vault/start')
-  @Post('vault/start')
-  async start(
+  async startFromGet(
     @Req() request: Request,
     @Res() response: Response,
     @Query('circle') circle?: string,
+  ): Promise<void> {
+    await this.start(request, response, circle);
+  }
+
+  @Post('vault/start')
+  async startFromPost(
+    @Req() request: Request,
+    @Res() response: Response,
+    @Query('circle') circle?: string,
+  ): Promise<void> {
+    await this.start(request, response, circle);
+  }
+
+  private async start(
+    request: Request,
+    response: Response,
+    circle?: string,
   ): Promise<void> {
     const forwarded = localhostForward(request, '/paypal/vault/start');
 
