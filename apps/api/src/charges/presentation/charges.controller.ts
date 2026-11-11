@@ -13,8 +13,13 @@ import type { Request, Response } from 'express';
 
 import { AuthService } from '../../auth/application/auth.service';
 import { ClerkNotConfiguredError } from '../../auth/domain/errors';
+import {
+  clearFlowActor,
+  flowActorFromRequestCookie,
+  rememberFlowActor,
+} from '../../auth/presentation/flow-actor-cookie';
 import { readCookie } from '../../auth/presentation/session-cookie';
-import { pageOrigin } from '../../paypal/domain/paypal-config';
+import { pageOrigin, vaultReturnUrl } from '../../paypal/domain/paypal-config';
 import { ChargesService } from '../application/charges.service';
 import { PaypalVaultError } from '../domain/errors';
 
@@ -30,6 +35,7 @@ export class ChargesController {
   ) {}
 
   @Get('vault/start')
+  @Post('vault/start')
   async start(
     @Req() request: Request,
     @Res() response: Response,
@@ -51,9 +57,10 @@ export class ChargesController {
       return;
     }
 
-    const returnUrl = vaultCallbackUrl();
+    const returnUrl = vaultReturnUrl();
 
     try {
+      rememberFlowActor(response, user.id);
       const started = await this.charges.beginApproval({
         returnUrl,
         cancelUrl: `${returnUrl}?cancelled=1`,
@@ -75,7 +82,9 @@ export class ChargesController {
       response.redirect(started.approveUrl);
     } catch (error) {
       if (error instanceof PaypalVaultError) {
-        response.redirect(await this.doneUrl(request, circleId, 'unavailable'));
+        response.redirect(
+          await this.doneUrl(request, circleId, 'unavailable', user.id),
+        );
         return;
       }
 
@@ -100,11 +109,14 @@ export class ChargesController {
     const clear = () => {
       response.clearCookie(SETUP_COOKIE, cookieOptions());
       response.clearCookie(CIRCLE_COOKIE, cookieOptions());
+      clearFlowActor(response);
     };
     const user = await this.member(request);
+    const actorId =
+      user?.id ?? flowActorFromRequestCookie(request.headers.cookie);
     const circleId = readCookie(request.headers.cookie, CIRCLE_COOKIE);
 
-    if (!user) {
+    if (!actorId) {
       clear();
       response.redirect(signInUrl(this.webOrigin(request), '/settings'));
       return;
@@ -112,7 +124,9 @@ export class ChargesController {
 
     if (cancelled === '1') {
       clear();
-      response.redirect(await this.doneUrl(request, circleId, 'denied'));
+      response.redirect(
+        await this.doneUrl(request, circleId, 'denied', actorId),
+      );
       return;
     }
 
@@ -123,19 +137,25 @@ export class ChargesController {
       (approvalTokenId && approvalTokenId !== setupTokenId)
     ) {
       clear();
-      response.redirect(await this.doneUrl(request, circleId, 'unavailable'));
+      response.redirect(
+        await this.doneUrl(request, circleId, 'unavailable', actorId),
+      );
       return;
     }
 
     try {
-      await this.charges.completeApproval(user.id, setupTokenId);
+      await this.charges.completeApproval(actorId, setupTokenId);
       clear();
-      response.redirect(await this.doneUrl(request, circleId, 'approved'));
+      response.redirect(
+        await this.doneUrl(request, circleId, 'approved', actorId),
+      );
     } catch (error) {
       clear();
 
       if (error instanceof PaypalVaultError) {
-        response.redirect(await this.doneUrl(request, circleId, 'unavailable'));
+        response.redirect(
+          await this.doneUrl(request, circleId, 'unavailable', actorId),
+        );
         return;
       }
 
@@ -163,21 +183,17 @@ export class ChargesController {
     request: Request,
     circleId: string | null | undefined,
     result: string,
+    userId: string,
   ): Promise<string> {
     const origin = this.webOrigin(request);
     const member =
       circleId && isUuid(circleId)
-        ? await this.charges.memberOf(circleId, await this.userId(request))
+        ? await this.charges.memberOf(circleId, userId)
         : false;
     const path = member ? `/circles/${circleId}` : '/settings';
     const url = new URL(path, origin);
     url.searchParams.set('charges', result);
     return url.toString();
-  }
-
-  private async userId(request: Request): Promise<string> {
-    const user = await this.member(request);
-    return user?.id ?? '';
   }
 
   private async member(request: Request) {
@@ -198,14 +214,6 @@ export class ChargesController {
       process.env.WEB_ORIGIN?.trim() || 'http://localhost:3001',
     );
   }
-}
-
-function vaultCallbackUrl(): string {
-  const port = /^\d{1,5}$/.test(process.env.PORT ?? '')
-    ? process.env.PORT
-    : '3000';
-
-  return `http://127.0.0.1:${port}/paypal/vault/callback`;
 }
 
 function localhostVaultRedirect(request: Request): string | null {

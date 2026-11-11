@@ -38,8 +38,7 @@ export function readPaypalConfig(
     environment,
     clientId,
     clientSecret,
-    returnUrl:
-      env.PAYPAL_RETURN_URL?.trim() || 'http://127.0.0.1:3000/paypal/callback',
+    returnUrl: paypalReturnUrl(env),
     webOrigin: env.WEB_ORIGIN?.trim() || 'http://localhost:3001',
     apiBase: live
       ? 'https://api-m.paypal.com'
@@ -49,6 +48,42 @@ export function readPaypalConfig(
       : 'https://www.sandbox.paypal.com',
     webhookId: (env.PAYPAL_WEBHOOK_ID ?? '').trim(),
   };
+}
+
+export function externalOrigin(
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
+  const value = env.RENDER_EXTERNAL_URL?.trim().replace(/\/$/, '') ?? '';
+
+  if (!/^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(value)) {
+    return null;
+  }
+
+  return value;
+}
+
+export function paypalReturnUrl(env: NodeJS.ProcessEnv = process.env): string {
+  const configured = env.PAYPAL_RETURN_URL?.trim();
+
+  if (configured) {
+    return configured;
+  }
+
+  const external = externalOrigin(env);
+  return external
+    ? `${external}/paypal/callback`
+    : 'http://127.0.0.1:3000/paypal/callback';
+}
+
+export function vaultReturnUrl(env: NodeJS.ProcessEnv = process.env): string {
+  const external = externalOrigin(env);
+
+  if (external) {
+    return `${external}/paypal/vault/callback`;
+  }
+
+  const port = /^\d{1,5}$/.test(env.PORT ?? '') ? env.PORT : '3000';
+  return `http://127.0.0.1:${port}/paypal/vault/callback`;
 }
 
 export function buildAuthorizeUrl(input: {

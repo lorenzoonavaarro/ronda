@@ -8,10 +8,8 @@ import type { Request } from 'express';
 
 import type { ClerkIdentity } from '../domain/clerk-identity';
 import { ClerkNotConfiguredError } from '../domain/errors';
-import {
-  sessionParty,
-  sessionPartyAllowed,
-} from '../domain/session-party';
+import { sessionParty, sessionPartyAllowed } from '../domain/session-party';
+import { sessionTokensFrom } from '../domain/request-session';
 import { readCookie } from '../presentation/session-cookie';
 
 const RONDA_CLERK_COOKIE = 'ronda_clerk';
@@ -101,7 +99,9 @@ export class ClerkTokenService {
         const parties = authorizedParties();
 
         if (!sessionPartyAllowed(claims.azp, parties)) {
-          this.logger.warn('Clerk session rejected: authorized party not allowed');
+          this.logger.warn(
+            'Clerk session rejected: authorized party not allowed',
+          );
           continue;
         }
 
@@ -124,19 +124,13 @@ export class ClerkTokenService {
 }
 
 function explicitTokens(request: Request): string[] {
-  const tokens: string[] = [];
-  const bearer = bearerToken(headerString(request.headers.authorization));
-  const cookieToken = readCookie(request.headers.cookie, RONDA_CLERK_COOKIE);
+  const body = request.body as { session?: unknown } | undefined;
 
-  if (bearer) {
-    tokens.push(bearer);
-  }
-
-  if (cookieToken && cookieToken !== bearer) {
-    tokens.push(cookieToken);
-  }
-
-  return tokens;
+  return sessionTokensFrom({
+    authorization: headerString(request.headers.authorization),
+    cookieToken: readCookie(request.headers.cookie, RONDA_CLERK_COOKIE),
+    bodySession: body?.session,
+  });
 }
 
 function toWebRequest(request: Request): globalThis.Request {
@@ -152,10 +146,15 @@ function toWebRequest(request: Request): globalThis.Request {
     }
   }
 
-  const cookieToken = readCookie(request.headers.cookie, RONDA_CLERK_COOKIE);
+  const body = request.body as { session?: unknown } | undefined;
+  const [token] = sessionTokensFrom({
+    authorization: headerString(request.headers.authorization),
+    cookieToken: readCookie(request.headers.cookie, RONDA_CLERK_COOKIE),
+    bodySession: body?.session,
+  });
 
-  if (cookieToken && !headers.has('authorization')) {
-    headers.set('authorization', `Bearer ${cookieToken}`);
+  if (token && !headers.has('authorization')) {
+    headers.set('authorization', `Bearer ${token}`);
   }
 
   return new Request(url, { method: request.method, headers });
@@ -209,11 +208,6 @@ function headerString(
   }
 
   return value;
-}
-
-function bearerToken(value: string | undefined): string | undefined {
-  const match = /^Bearer\s+(.+)$/i.exec(value ?? '');
-  return match?.[1];
 }
 
 function verifyReason(error: unknown): string {

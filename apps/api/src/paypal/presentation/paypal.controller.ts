@@ -13,6 +13,11 @@ import type { Request, Response } from 'express';
 import { AuthService } from '../../auth/application/auth.service';
 import { ClerkNotConfiguredError } from '../../auth/domain/errors';
 import {
+  clearFlowActor,
+  flowActorFromRequestCookie,
+  rememberFlowActor,
+} from '../../auth/presentation/flow-actor-cookie';
+import {
   SessionGuard,
   type AuthenticatedRequest,
 } from '../../auth/presentation/session.guard';
@@ -52,10 +57,12 @@ export class PaypalController {
   }
 
   @Get('link')
+  @Post('link')
   @UseGuards(SessionGuard)
-  link(@Req() request: Request, @Res() response: Response): void {
+  link(@Req() request: AuthenticatedRequest, @Res() response: Response): void {
     try {
       const started = this.paypal.beginLink();
+      rememberFlowActor(response, request.user.id);
       response.cookie(
         STATE_COOKIE,
         started.state,
@@ -97,10 +104,11 @@ export class PaypalController {
 
     const clearState = () => {
       response.clearCookie(STATE_COOKIE, cookieOptions());
+      clearFlowActor(response);
     };
-    const user = await this.member(request);
+    const userId = await this.actorId(request);
 
-    if (!user) {
+    if (!userId) {
       clearState();
       response.redirect(signInUrl(this.webOrigin(request), '/settings'));
       return;
@@ -122,7 +130,7 @@ export class PaypalController {
     }
 
     try {
-      await this.paypal.completeLink(user.id, firstQuery(code) ?? '');
+      await this.paypal.completeLink(userId, firstQuery(code) ?? '');
       clearState();
       response.redirect(this.settingsUrl(request, 'linked'));
     } catch (error) {
@@ -148,6 +156,11 @@ export class PaypalController {
 
   private webOrigin(request: Request): string {
     return pageOrigin(request.hostname, this.paypal.config.webOrigin);
+  }
+
+  private async actorId(request: Request): Promise<string | null> {
+    const user = await this.member(request);
+    return user?.id ?? flowActorFromRequestCookie(request.headers.cookie);
   }
 
   private async member(request: Request) {

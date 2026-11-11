@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { NestFactory } from '@nestjs/core';
+import { urlencoded } from 'express';
 
 import { AppModule } from './app.module';
 
@@ -38,6 +39,8 @@ function allowedOrigins(webOrigin: string | undefined): string[] {
 async function bootstrap() {
   loadLocalEnv();
   const app = await NestFactory.create(AppModule, { rawBody: true });
+  // PayPal link and vault approval are top-level form posts from the site.
+  app.use(urlencoded({ extended: false, limit: '16kb' }));
   app.enableCors({
     origin: allowedOrigins(process.env.WEB_ORIGIN),
     credentials: true,

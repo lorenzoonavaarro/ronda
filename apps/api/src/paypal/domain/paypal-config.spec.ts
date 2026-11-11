@@ -1,6 +1,11 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { localhostCallbackRedirect, pageOrigin } from './paypal-config';
+import {
+  localhostCallbackRedirect,
+  pageOrigin,
+  paypalReturnUrl,
+  vaultReturnUrl,
+} from './paypal-config';
 
 describe('pageOrigin', () => {
   it('sends a loopback browser to localhost', () => {
@@ -16,6 +21,34 @@ describe('pageOrigin', () => {
     expect(pageOrigin('ronda.example', 'https://ronda.example')).toBe(
       'https://ronda.example',
     );
+  });
+});
+
+describe('paypal return urls', () => {
+  it('keeps the local callback unless a public Render origin is set', () => {
+    expect(paypalReturnUrl({})).toBe('http://127.0.0.1:3000/paypal/callback');
+    expect(vaultReturnUrl({ PORT: '3000' })).toBe(
+      'http://127.0.0.1:3000/paypal/vault/callback',
+    );
+    expect(
+      paypalReturnUrl({
+        RENDER_EXTERNAL_URL: 'https://ronda-bl3s.onrender.com/',
+      }),
+    ).toBe('https://ronda-bl3s.onrender.com/paypal/callback');
+    expect(
+      vaultReturnUrl({
+        RENDER_EXTERNAL_URL: 'https://ronda-bl3s.onrender.com',
+      }),
+    ).toBe('https://ronda-bl3s.onrender.com/paypal/vault/callback');
+  });
+
+  it('lets an explicit return url win', () => {
+    expect(
+      paypalReturnUrl({
+        PAYPAL_RETURN_URL: 'https://example.test/paypal/callback',
+        RENDER_EXTERNAL_URL: 'https://ronda-bl3s.onrender.com',
+      }),
+    ).toBe('https://example.test/paypal/callback');
   });
 });
 
