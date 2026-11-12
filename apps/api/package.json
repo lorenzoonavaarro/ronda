@@ -24,6 +24,7 @@
     "@repo/api": "workspace:*",
     "ai": "^7.0.165",
     "escape-html": "1.0.3",
+    "express": "5.2.1",
     "pg": "^8.23.1",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
