@@ -14,11 +14,12 @@ import {
   CardTitle,
 } from '@repo/ui/components/card';
 
+import { CircleRounds } from '@/components/dashboard/circle-rounds';
 import { CreditSummary } from '@/components/dashboard/credit-summary';
 import { TreasurerPanel } from '@/components/dashboard/treasurer-panel';
 import { ConfirmPayoutButton } from '@/components/dashboard/confirm-payout-button';
 
-import { getCircle, getCredit, requireUser } from '../../../lib/api';
+import { getCircle, getCircleRounds, getCredit, requireUser } from '../../../lib/api';
 import { formatUsd } from '../../../lib/money';
 
 export const dynamic = 'force-dynamic';
@@ -41,8 +42,11 @@ export default async function CircleDetailPage({
   const query = await searchParams;
   const noticeKey = typeof query.charges === 'string' ? query.charges : '';
   const notice = chargeNotices[noticeKey];
-  const circle = await getCircle(id);
-  const credit = await getCredit();
+  const [circle, credit, rounds] = await Promise.all([
+    getCircle(id),
+    getCredit(),
+    getCircleRounds(id),
+  ]);
 
   if (!circle) {
     notFound();
@@ -176,6 +180,7 @@ export default async function CircleDetailPage({
               </p>
             </CardContent>
           </Card>
+          <CircleRounds rounds={rounds ?? { rounds: [] }} />
           {circle.viewerIsCreator && !locked ? (
             <Card>
               <CardHeader>

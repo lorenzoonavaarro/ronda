@@ -1,104 +1,33 @@
-import type { CircleSummary } from '@repo/api';
+import type { ActivityRecord, ActivityTurn, CircleSummary } from '@repo/api';
 import { Badge } from '@repo/ui/components/badge';
 import {
   Card,
   CardAction,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@repo/ui/components/card';
 
+import { ActivityPanel } from './activity-panel';
 import { CircleList } from './circle-list';
 
-export function Overview({ circles }: { circles: CircleSummary[] }) {
-  const active = circles.filter((circle) => circle.status === 'active');
-  const forming = circles.filter((circle) => circle.status === 'forming');
-  const completed = circles.filter((circle) => circle.status === 'completed');
+export function Overview({
+  circles,
+  activity,
+}: {
+  circles: CircleSummary[];
+  activity: ActivityRecord;
+}) {
+  const turns = new Map(activity.turns.map((turn) => [turn.circleId, turn]));
 
   return (
     <>
-      <section className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card">
-        <Card className="@container/card">
-          <CardHeader>
-            <CardDescription>Circles</CardDescription>
-            <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-              {circles.length}
-            </CardTitle>
-            <CardAction>
-              <Badge variant="outline">
-                {active.length} active
-              </Badge>
-            </CardAction>
-          </CardHeader>
-          <CardFooter className="flex-col items-start gap-1.5 text-sm">
-            <div className="line-clamp-1 font-medium">Groups you belong to</div>
-            <div className="text-muted-foreground">
-              {forming.length} forming · {completed.length} completed
-            </div>
-          </CardFooter>
-        </Card>
-        <Card className="@container/card">
-          <CardHeader>
-            <CardDescription>Circles to finish</CardDescription>
-            <CardTitle className="text-2xl font-semibold leading-tight">
-              {forming.length}
-            </CardTitle>
-            <CardAction>
-              <Badge variant="outline">Setup</Badge>
-            </CardAction>
-          </CardHeader>
-          <CardFooter className="flex-col items-start gap-1.5 text-sm">
-            <div className="line-clamp-1 font-medium">Fill seats and lock</div>
-            <div className="text-muted-foreground">
-              Every member joins before the creator can assign turns.
-            </div>
-          </CardFooter>
-        </Card>
-        <Card className="@container/card">
-          <CardHeader>
-            <CardDescription>Active rounds</CardDescription>
-            <CardTitle className="text-2xl font-semibold leading-tight">
-              {active.length}
-            </CardTitle>
-            <CardAction>
-              <Badge variant="outline">In progress</Badge>
-            </CardAction>
-          </CardHeader>
-          <CardFooter className="flex-col items-start gap-1.5 text-sm">
-            <div className="line-clamp-1 font-medium">Track each circle</div>
-            <div className="text-muted-foreground">
-              Open a circle to see payments, turns, and payout readiness.
-            </div>
-          </CardFooter>
-        </Card>
-        <Card className="@container/card">
-          <CardHeader>
-            <CardDescription>Next action</CardDescription>
-            <CardTitle className="text-2xl font-semibold leading-tight">
-              {forming.length > 0
-                ? 'Finish setup'
-                : active.length > 0
-                  ? 'Track round'
-                  : 'Create circle'}
-            </CardTitle>
-            <CardAction>
-              <Badge variant="outline">Suggested</Badge>
-            </CardAction>
-          </CardHeader>
-          <CardFooter className="flex-col items-start gap-1.5 text-sm">
-            <div className="line-clamp-1 font-medium">Keep the group moving</div>
-            <div className="text-muted-foreground">
-              The circle page shows the exact action required next.
-            </div>
-          </CardFooter>
-        </Card>
-      </section>
+      <ActivityPanel activity={activity} />
       <div className="px-4 lg:px-6">
         <Card className="@container/card">
           <CardHeader>
-            <CardTitle>This month</CardTitle>
+            <CardTitle>Next step</CardTitle>
             <CardDescription>
               Your circles and the next step for each one.
             </CardDescription>
@@ -118,6 +47,7 @@ export function Overview({ circles }: { circles: CircleSummary[] }) {
                     <span className="font-medium text-foreground">
                       {circle.name}
                     </span>
+                    {turnSentence(turns.get(circle.id))}
                     {circle.status === 'forming'
                       ? ` needs ${circle.membersRequired - circle.memberCount} more member${circle.membersRequired - circle.memberCount === 1 ? '' : 's'} before it can be locked.`
                       : circle.status === 'active'
@@ -133,4 +63,20 @@ export function Overview({ circles }: { circles: CircleSummary[] }) {
       <CircleList circles={circles} />
     </>
   );
+}
+
+function turnSentence(turn: ActivityTurn | undefined): string {
+  if (!turn || turn.payoutPosition === null || turn.state === 'forming') {
+    return '';
+  }
+
+  if (turn.state === 'received') {
+    return ` Turn ${turn.payoutPosition} already received.`;
+  }
+
+  if (turn.currentRound === null) {
+    return ` Turn ${turn.payoutPosition} has not started.`;
+  }
+
+  return ` Turn ${turn.payoutPosition}, round ${turn.currentRound}.`;
 }

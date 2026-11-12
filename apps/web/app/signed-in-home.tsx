@@ -1,14 +1,14 @@
 import { DashboardShell } from '@/components/dashboard/dashboard-shell';
 import { Overview } from '@/components/dashboard/overview';
 
-import { getCircles } from '../lib/api';
+import { getActivity, getCircles } from '../lib/api';
 
 export async function SignedInHome() {
-  const circles = await getCircles();
+  const [circles, activity] = await Promise.all([getCircles(), getActivity()]);
 
   return (
     <DashboardShell title="Overview">
-      <Overview circles={circles} />
+      <Overview circles={circles} activity={activity} />
     </DashboardShell>
   );
 }

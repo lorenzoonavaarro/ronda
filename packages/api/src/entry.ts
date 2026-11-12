@@ -1,5 +1,17 @@
 export type { AuthUser } from './auth/auth-user';
 export type {
+  ActivityEntry,
+  ActivityMonth,
+  ActivityRecord,
+  ActivityStatus,
+  ActivityTurn,
+  ActivityTurnState,
+  CircleRound,
+  CircleRoundPayment,
+  CircleRounds,
+  ScorePoint,
+} from './activity/activity';
+export type {
   CreditEvent,
   CreditEventType,
   CreditMembership,

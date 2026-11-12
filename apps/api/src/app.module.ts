@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { ActivityModule } from './activity/activity.module';
 import { AuthModule } from './auth/auth.module';
 import { CirclesModule } from './circles/circles.module';
 import { DatabaseModule } from './database/database.module';
@@ -11,6 +12,7 @@ import { PayoutsModule } from './payouts/payouts.module';
   imports: [
     DatabaseModule,
     AuthModule,
+    ActivityModule,
     CirclesModule,
     PaypalModule,
     TreasurerModule,
