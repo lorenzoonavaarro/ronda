@@ -23,11 +23,8 @@ import {
   UsernameAlreadyTakenError,
 } from '../domain/errors';
 import { SESSION_COOKIE } from '../domain/session-token';
-import {
-  clearSessionCookie,
-  readCookie,
-  setSessionCookie,
-} from './session-cookie';
+import { clearMemberCookies } from './clear-member-cookies';
+import { readCookie, setSessionCookie } from './session-cookie';
 import { SessionGuard, type AuthenticatedRequest } from './session.guard';
 
 @Controller('auth')
@@ -67,7 +64,7 @@ export class AuthController {
       await this.auth.logout(sessionToken);
     }
 
-    clearSessionCookie(response);
+    clearMemberCookies(response);
   }
 
   @Get('me')

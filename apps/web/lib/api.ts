@@ -14,8 +14,6 @@ import type {
 
 import { apiBase } from './http';
 
-const tokenCache = new Map<string, { token: string; until: number }>();
-
 async function sessionHeaders(): Promise<HeadersInit | null> {
   const session = await auth();
 
@@ -23,19 +21,6 @@ async function sessionHeaders(): Promise<HeadersInit | null> {
     return null;
   }
 
-  const token = await apiSessionToken(session);
-
-  return token ? { Authorization: `Bearer ${token}` } : null;
-}
-
-async function refreshSessionHeaders(): Promise<HeadersInit | null> {
-  const session = await auth();
-
-  if (!session.isAuthenticated) {
-    return null;
-  }
-
-  tokenCache.delete(session.sessionId);
   const token = await apiSessionToken(session);
 
   return token ? { Authorization: `Bearer ${token}` } : null;
@@ -57,7 +42,7 @@ async function apiFetch(path: string): Promise<Response | null> {
     return response;
   }
 
-  const refreshed = await refreshSessionHeaders();
+  const refreshed = await sessionHeaders();
 
   if (!refreshed) {
     return response;
@@ -74,16 +59,8 @@ async function apiSessionToken(session: {
   getToken: (options?: { expiresInSeconds?: number }) => Promise<string | null>;
 }): Promise<string | null> {
   const now = Date.now();
-  const cached = tokenCache.get(session.sessionId);
 
-  if (cached && cached.until > now && tokenUsableUntil(cached.token, now)) {
-    return cached.token;
-  }
-
-  tokenCache.delete(session.sessionId);
-
-  // The cookie session token can omit a usable party. A short-lived token
-  // from this session is the one the API already accepts.
+  // Mint for this request only. A token from an earlier Clerk session is not reused.
   let minted: string | null;
 
   try {
@@ -103,8 +80,6 @@ async function apiSessionToken(session: {
     return null;
   }
 
-  const until = Math.min(now + 45_000, tokenUsableUntil(token, now) ?? now);
-  tokenCache.set(session.sessionId, { token, until });
   return token;
 }
 

@@ -4,7 +4,11 @@ import { useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
-const REFRESH_KEY = 'ronda-overview-refresh';
+export const OVERVIEW_REFRESH_KEY = 'ronda-overview-refresh';
+
+export function clearOverviewRefresh(): void {
+  sessionStorage.removeItem(OVERVIEW_REFRESH_KEY);
+}
 
 export function SignedInOverviewRefresh() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -16,15 +20,15 @@ export function SignedInOverviewRefresh() {
     }
 
     if (!isSignedIn) {
-      sessionStorage.removeItem(REFRESH_KEY);
+      clearOverviewRefresh();
       return;
     }
 
-    if (sessionStorage.getItem(REFRESH_KEY) === '1') {
+    if (sessionStorage.getItem(OVERVIEW_REFRESH_KEY) === '1') {
       return;
     }
 
-    sessionStorage.setItem(REFRESH_KEY, '1');
+    sessionStorage.setItem(OVERVIEW_REFRESH_KEY, '1');
     router.refresh();
   }, [isLoaded, isSignedIn, router]);
 

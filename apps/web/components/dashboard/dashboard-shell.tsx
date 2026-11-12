@@ -16,11 +16,12 @@ import {
   SidebarTrigger,
 } from '@repo/ui/components/sidebar';
 import { TooltipProvider } from '@repo/ui/components/tooltip';
-import { UserButton } from '@clerk/nextjs';
+import { useClerk, UserButton } from '@clerk/nextjs';
 import {
   ChartLineIcon,
   CirclePlusIcon,
   LayoutDashboardIcon,
+  LogOutIcon,
   Settings2Icon,
   UsersIcon,
   WalletIcon,
@@ -28,6 +29,9 @@ import {
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { CSSProperties, ReactNode } from 'react';
+
+import { clearOverviewRefresh } from '@/components/signed-in-overview-refresh';
+import { apiBase } from '@/lib/http';
 
 const nav = [
   { href: '/', label: 'Overview', icon: LayoutDashboardIcon },
@@ -129,6 +133,24 @@ export function DashboardShell({
 }
 
 function AccountMenu() {
+  const { signOut } = useClerk();
+
+  async function signOutToHome() {
+    clearOverviewRefresh();
+
+    try {
+      await fetch(`${apiBase()}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // Clerk still has to end. Leftover API cookies expire on their own.
+    }
+
+    await signOut();
+    window.location.replace('/');
+  }
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -151,7 +173,13 @@ function AccountMenu() {
                 labelIcon={<Settings2Icon className="size-4" />}
               />
               <UserButton.Action label="manageAccount" />
-              <UserButton.Action label="signOut" />
+              <UserButton.Action
+                label="Sign out"
+                labelIcon={<LogOutIcon className="size-4" />}
+                onClick={() => {
+                  void signOutToHome();
+                }}
+              />
             </UserButton.MenuItems>
           </UserButton>
         </div>

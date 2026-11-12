@@ -22,7 +22,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn('font-sans', geist.variable)}>
       <body className="min-h-screen antialiased">
-        <ClerkProvider appearance={{ theme: shadcn }}>{children}</ClerkProvider>
+        <ClerkProvider appearance={{ theme: shadcn }} afterSignOutUrl="/">
+          {children}
+        </ClerkProvider>
       </body>
     </html>
   );
