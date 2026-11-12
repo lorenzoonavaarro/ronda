@@ -24,43 +24,53 @@ export function Overview({
   return (
     <>
       <ActivityPanel activity={activity} />
-      <div className="px-4 lg:px-6">
-        <Card className="@container/card">
-          <CardHeader>
-            <CardTitle>Next step</CardTitle>
-            <CardDescription>
-              Your circles and the next step for each one.
-            </CardDescription>
-            <CardAction>
-              <Badge variant="outline">{circles.length} total</Badge>
-            </CardAction>
-          </CardHeader>
-          <CardContent className="px-4 text-sm text-muted-foreground sm:px-6">
-            {circles.length === 0 ? (
-              <p>
-                Create a circle or join one to start saving with a group.
-              </p>
-            ) : (
-              <ul className="grid gap-3">
-                {circles.map((circle) => (
-                  <li key={circle.id}>
-                    <span className="font-medium text-foreground">
-                      {circle.name}
-                    </span>
-                    {turnSentence(turns.get(circle.id))}
-                    {circle.status === 'forming'
-                      ? ` needs ${circle.membersRequired - circle.memberCount} more member${circle.membersRequired - circle.memberCount === 1 ? '' : 's'} before it can be locked.`
-                      : circle.status === 'active'
-                        ? ' is active. Open it to track the current round and payout.'
-                        : ' is completed. Its history remains available.'}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-      <CircleList circles={circles} title="Your circles" />
+      <section className="grid gap-4">
+        <div className="px-4 lg:px-6">
+          <h2 className="font-heading text-xl font-semibold tracking-tight">
+            Your circles
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Circles you belong to.
+          </p>
+        </div>
+        <div className="px-4 lg:px-6">
+          <Card className="@container/card">
+            <CardHeader>
+              <CardTitle>Next step</CardTitle>
+              <CardDescription>
+                Your circles and the next step for each one.
+              </CardDescription>
+              <CardAction>
+                <Badge variant="outline">{circles.length} total</Badge>
+              </CardAction>
+            </CardHeader>
+            <CardContent className="px-4 text-sm text-muted-foreground sm:px-6">
+              {circles.length === 0 ? (
+                <p>
+                  Create a circle or join one to start saving with a group.
+                </p>
+              ) : (
+                <ul className="grid gap-3">
+                  {circles.map((circle) => (
+                    <li key={circle.id}>
+                      <span className="font-medium text-foreground">
+                        {circle.name}
+                      </span>
+                      {turnSentence(turns.get(circle.id))}
+                      {circle.status === 'forming'
+                        ? ` needs ${circle.membersRequired - circle.memberCount} more member${circle.membersRequired - circle.memberCount === 1 ? '' : 's'} before it can be locked.`
+                        : circle.status === 'active'
+                          ? ' is active. Open it to track the current round and payout.'
+                          : ' is completed. Its history remains available.'}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+        <CircleList circles={circles} />
+      </section>
     </>
   );
 }

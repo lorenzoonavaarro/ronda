@@ -25,11 +25,9 @@ type StatusFilter = (typeof statuses)[number];
 export function CircleList({
   circles,
   searchable = false,
-  title,
 }: {
   circles: CircleSummary[];
   searchable?: boolean;
-  title?: string;
 }) {
   const [name, setName] = useState('');
   const [circleId, setCircleId] = useState('');
@@ -96,14 +94,9 @@ export function CircleList({
     status,
   ]);
 
-  const heading = title ? (
-    <h2 className="font-heading text-base leading-snug font-medium">{title}</h2>
-  ) : null;
-
   if (circles.length === 0) {
     return (
-      <div className="grid gap-4 px-4 lg:px-6">
-        {heading}
+      <div className="px-4 lg:px-6">
         <Card>
           <CardHeader>
             <CardTitle>No circle yet</CardTitle>
@@ -125,7 +118,6 @@ export function CircleList({
 
   return (
     <div className="grid gap-4 px-4 lg:px-6">
-      {heading}
       {searchable ? (
         <form
           className="grid gap-3"
