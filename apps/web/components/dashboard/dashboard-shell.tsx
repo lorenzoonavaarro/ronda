@@ -147,8 +147,11 @@ function AccountMenu() {
       // Clerk still has to end. Leftover API cookies expire on their own.
     }
 
-    await signOut();
-    window.location.replace('/');
+    try {
+      await signOut();
+    } finally {
+      window.location.replace('/');
+    }
   }
 
   return (

@@ -55,7 +55,6 @@ async function apiFetch(path: string): Promise<Response | null> {
 }
 
 async function apiSessionToken(session: {
-  sessionId: string;
   getToken: (options?: { expiresInSeconds?: number }) => Promise<string | null>;
 }): Promise<string | null> {
   const now = Date.now();
