@@ -14,7 +14,11 @@
     "PAYPAL_WEBHOOK_ID",
     "ASTRO_GATEWAY_URL",
     "ASTRO_GATEWAY_API_KEY",
-    "ASTRO_GATEWAY_MODEL"
+    "ASTRO_GATEWAY_MODEL",
+    "ALPACA_API_KEY_ID",
+    "ALPACA_API_SECRET_KEY",
+    "APCA_API_KEY_ID",
+    "APCA_API_SECRET_KEY"
   ],
   "tasks": {
     "build": {

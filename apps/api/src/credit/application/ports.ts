@@ -41,5 +41,9 @@ export interface CreditRecorder {
   }): Promise<void>;
 }
 
+export interface CreditReader {
+  score(userId: string): Promise<number>;
+}
+
 export const CREDIT_REPOSITORY = Symbol('CREDIT_REPOSITORY');
 export const CREDIT_RECORDER = Symbol('CREDIT_RECORDER');

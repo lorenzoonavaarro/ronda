@@ -19,8 +19,12 @@ export interface CircleRepository {
     createdAt: Date;
     inviteToken: string;
     chargeDay: number;
+    minimumCreditScore?: number;
   }): Promise<void>;
   listForUser(userId: string): Promise<CircleRecord[]>;
+  listAll(
+    userId: string,
+  ): Promise<Array<CircleRecord & { viewerIsMember: boolean }>>;
   findForMember(
     userId: string,
     circleId: string,
@@ -38,6 +42,7 @@ export interface CircleRepository {
       name: string;
       monthlyAmountMinor: number;
       membersRequired: number;
+      minimumCreditScore?: number;
     },
   ): Promise<CircleSettingsResult>;
   lock(

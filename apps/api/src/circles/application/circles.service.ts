@@ -3,12 +3,16 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { CircleDetail, CircleSummary } from '@repo/api';
 
+import { CreditService } from '../../credit/application/credit.service';
 import type { ChargeView } from '../../charges/application/charges.service';
 import { CHARGE_READER } from '../../charges/application/ports';
 import { chargeDayFromDate } from '../../charges/domain/charge-calendar';
 import { shuffled } from '../domain/assign-turns';
 import type { CircleDetailRecord, CircleRecord } from '../domain/circle';
-import { MEMBERS_REQUIRED_TO_START } from '../domain/circle';
+import {
+  MEMBERS_REQUIRED_TO_START,
+  visibleInCircleDirectory,
+} from '../domain/circle';
 import {
   CircleClosedError,
   CircleForbiddenError,
@@ -33,6 +37,7 @@ export class CirclesService {
 
   constructor(
     @Inject(CIRCLE_REPOSITORY) private readonly circles: CircleRepository,
+    @Optional() private readonly credit?: CreditService,
     @Optional()
     @Inject(CHARGE_READER)
     private readonly chargeReader?: {
@@ -62,6 +67,7 @@ export class CirclesService {
       createdAt,
       inviteToken: this.inviteTokens(),
       chargeDay,
+      minimumCreditScore: input.minimumCreditScore,
     });
 
     return this.toSummary(
@@ -75,6 +81,7 @@ export class CirclesService {
         createdAt,
         memberCount: 1,
         membersRequired: MEMBERS_REQUIRED_TO_START,
+        minimumCreditScore: input.minimumCreditScore,
         chargeDay,
         chargesBeginOn: null,
       },
@@ -85,6 +92,22 @@ export class CirclesService {
   async listForUser(userId: string): Promise<CircleSummary[]> {
     const circles = await this.circles.listForUser(userId);
     return circles.map((circle) => this.toSummary(circle, userId));
+  }
+
+  async listAll(userId: string): Promise<CircleSummary[]> {
+    const circles = await this.circles.listAll(userId);
+    return circles
+      .filter((circle) =>
+        visibleInCircleDirectory({
+          status: circle.status,
+          memberCount: circle.memberCount,
+          membersRequired: circle.membersRequired,
+          viewerIsMember: circle.viewerIsMember,
+        }),
+      )
+      .map((circle) =>
+        this.toSummary(circle, userId, circle.viewerIsMember),
+      );
   }
 
   async getForMember(userId: string, circleId: string): Promise<CircleDetail> {
@@ -122,6 +145,13 @@ export class CirclesService {
 
     if (!circle) {
       throw new CircleNotFoundError();
+    }
+
+    const score = this.credit ? await this.credit.score(userId) : 0;
+    if (score < (circle.minimumCreditScore ?? 0)) {
+      throw new CircleNotReadyError(
+        `This circle requires a credit score of at least ${circle.minimumCreditScore ?? 0}.`,
+      );
     }
 
     const result = await this.circles.addMember(
@@ -257,7 +287,11 @@ export class CirclesService {
     return this.toDetail(circle, userId, view);
   }
 
-  private toSummary(circle: CircleRecord, userId: string): CircleSummary {
+  private toSummary(
+    circle: CircleRecord,
+    userId: string,
+    viewerIsMember = true,
+  ): CircleSummary {
     return {
       id: circle.id,
       name: circle.name,
@@ -266,15 +300,36 @@ export class CirclesService {
       status: circle.status,
       memberCount: circle.memberCount,
       membersRequired: circle.membersRequired,
+      minimumCreditScore: circle.minimumCreditScore ?? 0,
+      createdByDisplayName: circle.createdByDisplayName ?? 'Unknown member',
+      createdByUsername: circle.createdByUsername ?? 'unknown',
       viewerIsCreator: circle.createdBy === userId,
+      viewerIsMember,
     };
   }
 
-  private toDetail(
+  private async toDetail(
     circle: CircleDetailRecord,
     userId: string,
     view: ChargeView,
-  ): CircleDetail {
+  ): Promise<CircleDetail> {
+    const members = [...circle.members].sort((left, right) => {
+      if (left.payoutPosition === null || right.payoutPosition === null) {
+        return left.payoutPosition === right.payoutPosition
+          ? 0
+          : left.payoutPosition === null
+            ? 1
+            : -1;
+      }
+
+      return left.payoutPosition - right.payoutPosition;
+    });
+    const scores = await Promise.all(
+      members.map((member) =>
+        this.credit ? this.credit.score(member.userId) : Promise.resolve(0),
+      ),
+    );
+
     return {
       ...this.toSummary(circle, userId),
       inviteToken: circle.inviteToken,
@@ -284,22 +339,12 @@ export class CirclesService {
       potCollectedMinor: view.potCollectedMinor,
       currentRound: view.currentRound,
       viewerChargeApproved: view.approvedUserIds.has(userId),
-      members: [...circle.members]
-        .sort((left, right) => {
-          if (left.payoutPosition === null || right.payoutPosition === null) {
-            return left.payoutPosition === right.payoutPosition
-              ? 0
-              : left.payoutPosition === null
-                ? 1
-                : -1;
-          }
-
-          return left.payoutPosition - right.payoutPosition;
-        })
-        .map((member) => ({
+      members: members.map((member, index) => ({
           displayName: member.displayName,
           username: member.username,
           creator: member.creator,
+          creditScore: scores[index] ?? 0,
+          reputation: reputationFor(scores[index] ?? 0),
           payoutPosition: member.payoutPosition,
           chargeApproved: view.approvedUserIds.has(member.userId),
           contributionStatus:
@@ -322,6 +367,24 @@ function emptyChargeView(): ChargeView {
     approvedUserIds: new Set(),
     statusByUserId: new Map(),
   };
+}
+
+function reputationFor(
+  score: number,
+): 'top_member' | 'trusted_member' | 'building_reputation' | 'new_member' {
+  if (score >= 80) {
+    return 'top_member';
+  }
+
+  if (score >= 40) {
+    return 'trusted_member';
+  }
+
+  if (score > 0) {
+    return 'building_reputation';
+  }
+
+  return 'new_member';
 }
 
 function isUuid(value: string): boolean {

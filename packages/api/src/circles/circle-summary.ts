@@ -6,5 +6,9 @@ export type CircleSummary = {
   status: 'forming' | 'active' | 'completed';
   memberCount: number;
   membersRequired: number;
+  minimumCreditScore?: number;
+  createdByDisplayName?: string;
+  createdByUsername?: string;
   viewerIsCreator: boolean;
+  viewerIsMember: boolean;
 };

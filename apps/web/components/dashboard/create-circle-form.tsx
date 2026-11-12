@@ -38,6 +38,7 @@ export function CreateCircleForm() {
         body: JSON.stringify({
           name: String(form.get('name') ?? ''),
           monthlyAmountMinor,
+          minimumCreditScore: Number(form.get('minimumCreditScore') ?? 0),
         }),
       });
 
@@ -64,6 +65,19 @@ export function CreateCircleForm() {
       <Label className="grid gap-2">
         Monthly amount (USD)
         <Input name="amount" inputMode="decimal" placeholder="50.00" required />
+      </Label>
+      <Label className="grid gap-2">
+        Minimum credit score to join
+        <Input
+          name="minimumCreditScore"
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={1000}
+          step={1}
+          defaultValue={0}
+          required
+        />
       </Label>
       <p className="text-sm text-muted-foreground">
         You are the first member. A new circle starts with 6 seats. You can set

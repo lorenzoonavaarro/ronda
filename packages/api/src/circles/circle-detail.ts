@@ -7,6 +7,12 @@ export type CircleMember = {
   displayName: string;
   username: string;
   creator: boolean;
+  creditScore?: number;
+  reputation?:
+    | 'top_member'
+    | 'trusted_member'
+    | 'building_reputation'
+    | 'new_member';
   payoutPosition: number | null;
   chargeApproved: boolean;
   contributionStatus: ContributionStatus;

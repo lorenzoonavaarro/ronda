@@ -29,6 +29,7 @@ function detail(paid: boolean): CircleDetail {
     memberCount: 1,
     membersRequired: 1,
     viewerIsCreator: true,
+    viewerIsMember: true,
     inviteToken: 'secret-invite',
     createdAt: '2026-01-01T00:00:00.000Z',
     chargeDay: 4,
@@ -65,6 +66,7 @@ class FakeCircles implements TreasurerCircles {
         memberCount: this.circle.memberCount,
         membersRequired: this.circle.membersRequired,
         viewerIsCreator: this.circle.viewerIsCreator,
+        viewerIsMember: true,
       },
     ];
   }

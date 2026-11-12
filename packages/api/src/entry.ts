@@ -28,3 +28,13 @@ export type {
   PaypalLinkStatus,
 } from './paypal/paypal-link';
 export type { TreasurerReply } from './treasurer/treasurer';
+export type {
+  PaperAccount,
+  PaperCashLedgerEntry,
+  PaperFill,
+  PaperFreezeReason,
+  PaperMarketQuote,
+  PaperOrderRecord,
+  PaperPosition,
+  PaperQuote,
+} from './paper/paper';

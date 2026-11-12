@@ -195,12 +195,13 @@ export default async function CircleDetailPage({
               </CardHeader>
               <CardContent>
                 <CircleSettings
-                  key={`${circle.name}-${circle.monthlyAmountMinor}-${circle.membersRequired}`}
+                  key={`${circle.name}-${circle.monthlyAmountMinor}-${circle.membersRequired}-${circle.minimumCreditScore ?? 0}`}
                   circleId={circle.id}
                   name={circle.name}
                   monthlyAmountMinor={circle.monthlyAmountMinor}
                   memberCount={circle.memberCount}
                   membersRequired={circle.membersRequired}
+                  minimumCreditScore={circle.minimumCreditScore ?? 0}
                 />
               </CardContent>
             </Card>
@@ -212,6 +213,7 @@ export default async function CircleDetailPage({
                 {turnsAssigned
                   ? 'Each member has one turn. The order was assigned at random when the circle was locked.'
                   : 'Nobody has a turn until the creator locks the circle.'}
+                {` Minimum score to join: ${circle.minimumCreditScore ?? 0}.`}
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3">
@@ -228,6 +230,9 @@ export default async function CircleDetailPage({
                     {member.creator ? (
                       <Badge variant="secondary">Creator</Badge>
                     ) : null}
+                    <Badge className={reputationClass(member.reputation)}>
+                      {reputationLabel(member.reputation)}
+                    </Badge>
                     <span className="text-muted-foreground">
                       {contributionLabel(member.contributionStatus)}
                     </span>
@@ -397,6 +402,52 @@ function contributionLabel(
   }
 
   return 'Not due';
+}
+
+function reputationLabel(
+  reputation:
+    | 'top_member'
+    | 'trusted_member'
+    | 'building_reputation'
+    | 'new_member'
+    | undefined,
+): string {
+  if (reputation === 'top_member') {
+    return 'Top member';
+  }
+
+  if (reputation === 'trusted_member') {
+    return 'Trusted member';
+  }
+
+  if (reputation === 'building_reputation') {
+    return 'Building reputation';
+  }
+
+  return 'New member';
+}
+
+function reputationClass(
+  reputation:
+    | 'top_member'
+    | 'trusted_member'
+    | 'building_reputation'
+    | 'new_member'
+    | undefined,
+): string {
+  if (reputation === 'top_member') {
+    return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700';
+  }
+
+  if (reputation === 'trusted_member') {
+    return 'border-blue-500/40 bg-blue-500/10 text-blue-700';
+  }
+
+  if (reputation === 'building_reputation') {
+    return 'border-amber-500/40 bg-amber-500/10 text-amber-700';
+  }
+
+  return 'border-muted-foreground/30 bg-muted text-muted-foreground';
 }
 
 function statusLabel(status: 'forming' | 'active' | 'completed'): string {

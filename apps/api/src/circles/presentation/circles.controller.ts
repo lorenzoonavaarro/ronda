@@ -10,6 +10,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -37,7 +38,14 @@ export class CirclesController {
   constructor(private readonly circles: CirclesService) {}
 
   @Get()
-  list(@Req() request: AuthenticatedRequest): Promise<CircleSummary[]> {
+  list(
+    @Req() request: AuthenticatedRequest,
+    @Query('scope') scope?: string,
+  ): Promise<CircleSummary[]> {
+    if (scope === 'all') {
+      return this.circles.listAll(request.user.id);
+    }
+
     return this.circles.listForUser(request.user.id);
   }
 

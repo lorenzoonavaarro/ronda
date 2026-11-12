@@ -7,6 +7,8 @@ import type {
   CircleRounds,
   CircleSummary,
   CreditRecord,
+  PaperAccount,
+  PaperMarketQuote,
   PaypalLinkStatus,
 } from '@repo/api';
 
@@ -107,7 +109,13 @@ async function apiSessionToken(session: {
 }
 
 function usableToken(token: string | null, now: number): string | null {
-  if (!token || !tokenUsableUntil(token, now)) {
+  if (!token) {
+    return null;
+  }
+
+  const expiresAt = tokenUsableUntil(token, now);
+
+  if (expiresAt !== null && expiresAt <= now) {
     return null;
   }
 
@@ -167,7 +175,15 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 }
 
 export async function getCircles(): Promise<CircleSummary[]> {
-  const response = await apiFetch('/circles');
+  return loadCircles('/circles');
+}
+
+export async function getAllCircles(): Promise<CircleSummary[]> {
+  return loadCircles('/circles?scope=all');
+}
+
+async function loadCircles(path: string): Promise<CircleSummary[]> {
+  const response = await apiFetch(path);
 
   if (!response) {
     return [];
@@ -242,6 +258,34 @@ export async function getCredit(): Promise<CreditRecord | null> {
   }
 
   return (await response.json()) as CreditRecord;
+}
+
+export async function getPaperMarket(): Promise<PaperMarketQuote[]> {
+  const response = await apiFetch('/paper/market');
+
+  if (!response) {
+    throw new Error('Sign in required.');
+  }
+
+  if (!response.ok) {
+    throw new Error('Could not load the market.');
+  }
+
+  return (await response.json()) as PaperMarketQuote[];
+}
+
+export async function getPaperAccount(): Promise<PaperAccount> {
+  const response = await apiFetch('/paper');
+
+  if (!response) {
+    throw new Error('Sign in required.');
+  }
+
+  if (!response.ok) {
+    throw new Error('Could not load the paper account.');
+  }
+
+  return (await response.json()) as PaperAccount;
 }
 
 export async function getPaypalLink(): Promise<PaypalLinkStatus> {

@@ -97,15 +97,18 @@ export class PgPayoutRepository implements PayoutRepository {
     return result.rows[0] ? map(result.rows[0]) : this.findById(id);
   }
 
-  async markSucceeded(batchId: string, itemId: string | null): Promise<void> {
-    await this.pool.query(
+  async markSucceeded(batchId: string, itemId: string | null): Promise<string[]> {
+    const result = await this.pool.query<{ recipient_user_id: string }>(
       `UPDATE payouts
-       SET status = 'succeeded', failure_reason = NULL
+       SET status = 'succeeded', failure_reason = NULL, updated_at = now()
        WHERE paypal_batch_id = $1
          AND ($2::text IS NULL OR paypal_item_id = $2)
-         AND status <> 'succeeded'`,
+         AND status <> 'succeeded'
+       RETURNING recipient_user_id`,
       [batchId, itemId],
     );
+
+    return result.rows.map((row) => row.recipient_user_id);
   }
 
   async markFailed(

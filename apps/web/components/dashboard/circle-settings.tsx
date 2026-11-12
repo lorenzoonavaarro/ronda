@@ -19,12 +19,14 @@ export function CircleSettings({
   monthlyAmountMinor,
   memberCount,
   membersRequired,
+  minimumCreditScore,
 }: {
   circleId: string;
   name: string;
   monthlyAmountMinor: number;
   memberCount: number;
   membersRequired: number;
+  minimumCreditScore: number;
 }) {
   const router = useRouter();
   const apiFetch = useAuthedFetch();
@@ -76,6 +78,7 @@ export function CircleSettings({
           name: String(form.get('name') ?? ''),
           monthlyAmountMinor: amount,
           membersRequired: seats,
+          minimumCreditScore: Number(form.get('minimumCreditScore') ?? 0),
         }),
       });
 
@@ -146,6 +149,19 @@ export function CircleSettings({
           max={MAX_SEATS}
           step={1}
           defaultValue={membersRequired}
+          required
+        />
+      </Label>
+      <Label className="grid gap-2">
+        Minimum credit score to join
+        <Input
+          name="minimumCreditScore"
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={1000}
+          step={1}
+          defaultValue={minimumCreditScore}
           required
         />
       </Label>

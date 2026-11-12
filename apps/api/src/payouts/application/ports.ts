@@ -32,7 +32,7 @@ export interface PayoutRepository {
     batchId: string,
     itemId: string | null,
   ): Promise<PayoutRecord | null>;
-  markSucceeded(batchId: string, itemId: string | null): Promise<void>;
+  markSucceeded(batchId: string, itemId: string | null): Promise<string[]>;
   markFailed(
     batchId: string,
     itemId: string | null,

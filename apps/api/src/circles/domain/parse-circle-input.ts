@@ -11,6 +11,7 @@ const MAX_NAME_LENGTH = 60;
 export type CreateCircleInput = {
   name: string;
   monthlyAmountMinor: number;
+  minimumCreditScore: number;
 };
 
 export type CircleSettingsInput = CreateCircleInput & {
@@ -50,7 +51,20 @@ export function parseCreateCircle(body: unknown): CreateCircleInput {
     );
   }
 
-  return { name, monthlyAmountMinor: amount };
+  const minimumCreditScore = record.minimumCreditScore ?? 0;
+
+  if (
+    typeof minimumCreditScore !== 'number' ||
+    !Number.isInteger(minimumCreditScore) ||
+    minimumCreditScore < 0 ||
+    minimumCreditScore > 1000
+  ) {
+    throw new InvalidCircleInputError(
+      'Minimum credit score must be an integer from 0 to 1,000.',
+    );
+  }
+
+  return { name, monthlyAmountMinor: amount, minimumCreditScore };
 }
 
 export function parseCircleSettings(body: unknown): CircleSettingsInput {

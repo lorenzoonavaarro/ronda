@@ -21,8 +21,8 @@ export default async function NewCirclePage() {
         <CardHeader>
           <CardTitle>Create a circle</CardTitle>
           <CardDescription>
-            Set the name and the fixed monthly contribution. Amounts are in US
-            dollars, from $1.00 to $100,000.00.
+            Set the name, monthly contribution, and minimum credit score to
+            join. Amounts are in US dollars, from $1.00 to $100,000.00.
           </CardDescription>
         </CardHeader>
         <CardContent>

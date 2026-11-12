@@ -7,6 +7,7 @@ import { streakFromRounds } from '../domain/streak';
 import {
   CREDIT_REPOSITORY,
   type CreditRecorder,
+  type CreditReader,
   type CreditRepository,
 } from './ports';
 
@@ -16,7 +17,7 @@ const COMPLETED_POINTS = 20;
 const DEFAULTED_POINTS = -40;
 
 @Injectable()
-export class CreditService implements CreditRecorder {
+export class CreditService implements CreditRecorder, CreditReader {
   constructor(
     @Inject(CREDIT_REPOSITORY) private readonly credit: CreditRepository,
   ) {}
@@ -121,5 +122,10 @@ export class CreditService implements CreditRecorder {
         occurredOn: event.occurredOn,
       })),
     };
+  }
+
+  async score(userId: string): Promise<number> {
+    const events = await this.credit.eventsForUser(userId);
+    return events.reduce((sum, event) => sum + event.points, 0);
   }
 }

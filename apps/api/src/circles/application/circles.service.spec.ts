@@ -11,7 +11,10 @@ import type {
   CircleDetailRecord,
   CircleRecord,
 } from '../domain/circle';
-import { MEMBERS_REQUIRED_TO_START } from '../domain/circle';
+import {
+  MEMBERS_REQUIRED_TO_START,
+  visibleInCircleDirectory,
+} from '../domain/circle';
 import { sameMembers } from '../domain/assign-turns';
 import {
   CircleClosedError,
@@ -70,6 +73,22 @@ class MemoryCircles implements CircleRepository {
         circle.members.some((member) => member.userId === userId),
       )
       .map((circle) => this.record(circle));
+  }
+
+  async listAll(
+    userId: string,
+  ): Promise<Array<CircleRecord & { viewerIsMember: boolean }>> {
+    return [...this.rows]
+      .sort(
+        (left, right) => right.createdAt.getTime() - left.createdAt.getTime(),
+      )
+      .map((circle) => ({
+        ...this.record(circle),
+        viewerIsMember: circle.members.some(
+          (member) => member.userId === userId,
+        ),
+      }))
+      .filter((circle) => visibleInCircleDirectory(circle));
   }
 
   async findForMember(
@@ -255,6 +274,7 @@ describe('CirclesService', () => {
       memberCount: 1,
       membersRequired: 6,
       viewerIsCreator: true,
+      viewerIsMember: true,
     });
   });
 
@@ -272,6 +292,53 @@ describe('CirclesService', () => {
     const circles = await service.listForUser('user-1');
 
     expect(circles.map((circle) => circle.name)).toEqual(['Mine']);
+  });
+
+  it('lists open circles and circles the caller belongs to', async () => {
+    const { service, circles } = createService();
+    service.clock = () => new Date('2026-01-01T00:00:00.000Z');
+    await service.create('user-1', {
+      name: 'Mine',
+      monthlyAmountMinor: 2000,
+    });
+    service.clock = () => new Date('2026-01-02T00:00:00.000Z');
+    await service.create('user-2', {
+      name: 'Open',
+      monthlyAmountMinor: 2000,
+    });
+    service.clock = () => new Date('2026-01-03T00:00:00.000Z');
+    await service.create('user-2', {
+      name: 'Finished',
+      monthlyAmountMinor: 2000,
+    });
+    service.clock = () => new Date('2026-01-04T00:00:00.000Z');
+    await service.create('user-2', {
+      name: 'Full',
+      monthlyAmountMinor: 2000,
+    });
+    service.clock = () => new Date('2026-01-05T00:00:00.000Z');
+    await service.create('user-1', {
+      name: 'My finished',
+      monthlyAmountMinor: 2000,
+    });
+
+    const finished = circles.rows.find((row) => row.name === 'Finished');
+    const full = circles.rows.find((row) => row.name === 'Full');
+    const mineFinished = circles.rows.find((row) => row.name === 'My finished');
+    if (!finished || !full || !mineFinished) {
+      throw new Error('Expected the directory fixtures.');
+    }
+    finished.status = 'completed';
+    full.membersRequired = 1;
+    mineFinished.status = 'completed';
+
+    const listed = await service.listAll('user-1');
+
+    expect(listed.map((circle) => [circle.name, circle.viewerIsMember])).toEqual([
+      ['My finished', true],
+      ['Open', false],
+      ['Mine', true],
+    ]);
   });
 
   it('rejects a blank name and an amount outside $1 to $100,000', async () => {

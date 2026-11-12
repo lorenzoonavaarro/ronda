@@ -6,6 +6,7 @@ import { CirclesModule } from './circles/circles.module';
 import { DatabaseModule } from './database/database.module';
 import { PaypalModule } from './paypal/paypal.module';
 import { TreasurerModule } from './treasurer/treasurer.module';
+import { PaperModule } from './paper/paper.module';
 import { PayoutsModule } from './payouts/payouts.module';
 
 @Module({
@@ -16,6 +17,7 @@ import { PayoutsModule } from './payouts/payouts.module';
     CirclesModule,
     PaypalModule,
     TreasurerModule,
+    PaperModule,
     PayoutsModule,
   ],
   controllers: [],

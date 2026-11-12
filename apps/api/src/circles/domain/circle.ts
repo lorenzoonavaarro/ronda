@@ -6,6 +6,21 @@ export const MAX_MONTHLY_AMOUNT_MINOR = 10_000_000;
 
 export type CircleStatus = 'forming' | 'active' | 'completed';
 
+export function visibleInCircleDirectory(input: {
+  status: CircleStatus;
+  memberCount: number;
+  membersRequired: number;
+  viewerIsMember: boolean;
+}): boolean {
+  if (input.viewerIsMember) {
+    return true;
+  }
+
+  return (
+    input.status === 'forming' && input.memberCount < input.membersRequired
+  );
+}
+
 export type CircleRecord = {
   id: string;
   name: string;
@@ -16,6 +31,9 @@ export type CircleRecord = {
   createdAt: Date;
   memberCount: number;
   membersRequired: number;
+  minimumCreditScore?: number;
+  createdByDisplayName?: string;
+  createdByUsername?: string;
   chargeDay: number;
   chargesBeginOn: string | null;
 };

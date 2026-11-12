@@ -1,10 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import type { IncomingHttpHeaders } from 'node:http';
 
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { CircleDetail } from '@repo/api';
 
 import { CirclesService } from '../../circles/application/circles.service';
+import {
+  PAPER_GRANTS,
+  type PaperGrants,
+} from '../../paper/application/ports';
 import { PaypalService } from '../../paypal/application/paypal.service';
 import {
   PAYPAL_PAYOUTS,
@@ -24,6 +28,7 @@ export class PayoutsService {
     @Inject(PAYPAL_PAYOUTS) private readonly paypal: PaypalPayouts,
     private readonly circles: CirclesService,
     private readonly accounts: PaypalService,
+    @Optional() @Inject(PAPER_GRANTS) private readonly grants?: PaperGrants,
   ) {}
 
   async confirm(userId: string, circleId: string): Promise<PayoutRecord> {
@@ -141,7 +146,15 @@ export class PayoutsService {
       eventType === 'PAYMENT.PAYOUTS-ITEM.SUCCEEDED' ||
       eventType === 'PAYMENT.PAYOUTSBATCH.SUCCESS'
     ) {
-      await this.payouts.markSucceeded(batchId, itemId);
+      const recipients = await this.payouts.markSucceeded(batchId, itemId);
+
+      for (const userId of recipients) {
+        try {
+          await this.grants?.sync(userId);
+        } catch {
+          // The stock page syncs again when the member opens it.
+        }
+      }
     } else if (
       eventType === 'PAYMENT.PAYOUTS-ITEM.FAILED' ||
       eventType === 'PAYMENT.PAYOUTS-ITEM.BLOCKED' ||

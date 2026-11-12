@@ -29,6 +29,9 @@ type CircleRow = {
   members_required: number;
   charge_day: number;
   charges_begin_on: string | null;
+  minimum_credit_score: number;
+  created_by_display_name: string;
+  created_by_username: string;
   invite_token?: string;
 };
 
@@ -53,6 +56,7 @@ export class PgCircleRepository implements CircleRepository {
     createdAt: Date;
     inviteToken: string;
     chargeDay: number;
+    minimumCreditScore?: number;
   }): Promise<void> {
     const client = await this.pool.connect();
 
@@ -61,9 +65,10 @@ export class PgCircleRepository implements CircleRepository {
       await client.query(
         `INSERT INTO circles (
            id, name, monthly_amount_minor, currency, status, created_by,
-           created_at, invite_token, members_required, charge_day
+           created_at, invite_token, members_required, charge_day,
+           minimum_credit_score
          )
-         VALUES ($1, $2, $3, 'USD', 'forming', $4, $5, $6, $7, $8)`,
+         VALUES ($1, $2, $3, 'USD', 'forming', $4, $5, $6, $7, $8, $9)`,
         [
           input.id,
           input.name,
@@ -73,6 +78,7 @@ export class PgCircleRepository implements CircleRepository {
           input.inviteToken,
           MEMBERS_REQUIRED_TO_START,
           input.chargeDay,
+          input.minimumCreditScore ?? 0,
         ],
       );
       await client.query(
@@ -93,29 +99,54 @@ export class PgCircleRepository implements CircleRepository {
     const result = await this.pool.query<CircleRow>(
       `SELECT c.id, c.name, c.monthly_amount_minor, c.currency, c.status,
               c.created_by, c.created_at, c.members_required, c.charge_day,
+              c.minimum_credit_score,
+              creator.display_name AS created_by_display_name,
+              creator.username AS created_by_username,
               to_char(c.charges_begin_on, 'YYYY-MM-DD') AS charges_begin_on,
               count(m.user_id)::text AS member_count
        FROM circles c
+       JOIN users creator ON creator.id = c.created_by
        JOIN circle_members mine
          ON mine.circle_id = c.id AND mine.user_id = $1
        JOIN circle_members m ON m.circle_id = c.id
-       GROUP BY c.id
+       GROUP BY c.id, creator.display_name, creator.username
+       ORDER BY c.created_at DESC`,
+      [userId],
+    );
+
+    return result.rows.map((row) => this.toRecord(row));
+  }
+
+  async listAll(
+    userId: string,
+  ): Promise<Array<CircleRecord & { viewerIsMember: boolean }>> {
+    const result = await this.pool.query<
+      CircleRow & { viewer_is_member: boolean }
+    >(
+      `SELECT c.id, c.name, c.monthly_amount_minor, c.currency, c.status,
+              c.created_by, c.created_at, c.members_required, c.charge_day,
+              c.minimum_credit_score,
+              creator.display_name AS created_by_display_name,
+              creator.username AS created_by_username,
+              to_char(c.charges_begin_on, 'YYYY-MM-DD') AS charges_begin_on,
+              count(m.user_id)::text AS member_count,
+              COALESCE(bool_or(m.user_id = $1), false) AS viewer_is_member
+       FROM circles c
+       JOIN users creator ON creator.id = c.created_by
+       LEFT JOIN circle_members m ON m.circle_id = c.id
+       GROUP BY c.id, creator.display_name, creator.username
+       HAVING COALESCE(bool_or(m.user_id = $1), false)
+           OR (
+             c.status = 'forming'
+             AND count(m.user_id) < c.members_required
+           )
        ORDER BY c.created_at DESC`,
       [userId],
     );
 
     return result.rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      monthlyAmountMinor: row.monthly_amount_minor,
-      currency: row.currency,
-      status: row.status,
-      createdBy: row.created_by,
-      createdAt: row.created_at,
-      memberCount: Number(row.member_count),
-      membersRequired: Number(row.members_required),
-      chargeDay: Number(row.charge_day),
-      chargesBeginOn: row.charges_begin_on,
+      ...this.toRecord(row),
+      viewerIsMember: row.viewer_is_member,
     }));
   }
 
@@ -126,15 +157,18 @@ export class PgCircleRepository implements CircleRepository {
     const result = await this.pool.query<CircleRow>(
       `SELECT c.id, c.name, c.monthly_amount_minor, c.currency, c.status,
               c.created_by, c.created_at, c.invite_token, c.members_required,
-              c.charge_day,
+              c.charge_day, c.minimum_credit_score,
+              creator.display_name AS created_by_display_name,
+              creator.username AS created_by_username,
               to_char(c.charges_begin_on, 'YYYY-MM-DD') AS charges_begin_on,
               count(m.user_id)::text AS member_count
        FROM circles c
+       JOIN users creator ON creator.id = c.created_by
        JOIN circle_members mine
          ON mine.circle_id = c.id AND mine.user_id = $2
        JOIN circle_members m ON m.circle_id = c.id
        WHERE c.id = $1
-       GROUP BY c.id`,
+       GROUP BY c.id, creator.display_name, creator.username`,
       [circleId, userId],
     );
     const row = result.rows[0];
@@ -150,13 +184,16 @@ export class PgCircleRepository implements CircleRepository {
     const result = await this.pool.query<CircleRow>(
       `SELECT c.id, c.name, c.monthly_amount_minor, c.currency, c.status,
               c.created_by, c.created_at, c.invite_token, c.members_required,
-              c.charge_day,
+              c.charge_day, c.minimum_credit_score,
+              creator.display_name AS created_by_display_name,
+              creator.username AS created_by_username,
               to_char(c.charges_begin_on, 'YYYY-MM-DD') AS charges_begin_on,
               count(m.user_id)::text AS member_count
        FROM circles c
+       JOIN users creator ON creator.id = c.created_by
        JOIN circle_members m ON m.circle_id = c.id
        WHERE c.invite_token = $1
-       GROUP BY c.id`,
+       GROUP BY c.id, creator.display_name, creator.username`,
       [token],
     );
     const row = result.rows[0];
@@ -242,6 +279,7 @@ export class PgCircleRepository implements CircleRepository {
       name: string;
       monthlyAmountMinor: number;
       membersRequired: number;
+      minimumCreditScore?: number;
     },
   ): Promise<CircleSettingsResult> {
     const client = await this.pool.connect();
@@ -269,9 +307,16 @@ export class PgCircleRepository implements CircleRepository {
 
       await client.query(
         `UPDATE circles
-         SET name = $2, monthly_amount_minor = $3, members_required = $4
+         SET name = $2, monthly_amount_minor = $3, members_required = $4,
+             minimum_credit_score = $5
          WHERE id = $1`,
-        [circleId, input.name, input.monthlyAmountMinor, input.membersRequired],
+        [
+          circleId,
+          input.name,
+          input.monthlyAmountMinor,
+          input.membersRequired,
+          input.minimumCreditScore ?? 0,
+        ],
       );
       await client.query('COMMIT');
       return 'updated';
@@ -404,10 +449,7 @@ export class PgCircleRepository implements CircleRepository {
     }));
   }
 
-  private toDetail(
-    row: CircleRow,
-    members: CircleMemberRecord[],
-  ): CircleDetailRecord {
+  private toRecord(row: CircleRow): CircleRecord {
     return {
       id: row.id,
       name: row.name,
@@ -418,8 +460,20 @@ export class PgCircleRepository implements CircleRepository {
       createdAt: row.created_at,
       memberCount: Number(row.member_count),
       membersRequired: Number(row.members_required),
+      minimumCreditScore: Number(row.minimum_credit_score),
+      createdByDisplayName: row.created_by_display_name,
+      createdByUsername: row.created_by_username,
       chargeDay: Number(row.charge_day),
       chargesBeginOn: row.charges_begin_on,
+    };
+  }
+
+  private toDetail(
+    row: CircleRow,
+    members: CircleMemberRecord[],
+  ): CircleDetailRecord {
+    return {
+      ...this.toRecord(row),
       inviteToken: row.invite_token ?? '',
       members,
     };

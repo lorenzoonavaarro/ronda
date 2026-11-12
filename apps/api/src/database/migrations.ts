@@ -330,4 +330,92 @@ export const migrations: { id: string; sql: string }[] = [
         ALTER COLUMN password_hash SET DEFAULT 'clerk-managed';
     `,
   },
+  {
+    id: '012_circle_credit_requirements',
+    sql: `
+      ALTER TABLE circles
+        ADD COLUMN IF NOT EXISTS minimum_credit_score integer NOT NULL DEFAULT 0;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'circles_minimum_credit_score_check'
+        ) THEN
+          ALTER TABLE circles
+            ADD CONSTRAINT circles_minimum_credit_score_check
+            CHECK (minimum_credit_score BETWEEN 0 AND 1000);
+        END IF;
+      END $$;
+    `,
+  },
+  {
+    id: '013_paper_trading',
+    sql: `
+      CREATE TABLE IF NOT EXISTS paper_accounts (
+        user_id uuid PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+        cash_minor integer NOT NULL DEFAULT 0 CHECK (cash_minor >= 0),
+        granted_minor integer NOT NULL DEFAULT 0 CHECK (granted_minor >= 0)
+      );
+
+      CREATE TABLE IF NOT EXISTS paper_positions (
+        user_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+        symbol text NOT NULL,
+        quantity_e4 integer NOT NULL CHECK (quantity_e4 > 0),
+        cost_basis_minor integer NOT NULL CHECK (cost_basis_minor >= 0),
+        PRIMARY KEY (user_id, symbol)
+      );
+
+      CREATE TABLE IF NOT EXISTS paper_orders (
+        id uuid PRIMARY KEY,
+        user_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+        symbol text NOT NULL,
+        side text NOT NULL CHECK (side IN ('buy', 'sell')),
+        quantity_e4 integer NOT NULL CHECK (quantity_e4 > 0),
+        price_minor integer NOT NULL CHECK (price_minor > 0),
+        notional_minor integer NOT NULL CHECK (notional_minor > 0),
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE INDEX IF NOT EXISTS paper_orders_user_created_idx
+        ON paper_orders (user_id, created_at DESC);
+
+      CREATE INDEX IF NOT EXISTS payouts_recipient_status_idx
+        ON payouts (recipient_user_id, status);
+    `,
+  },
+  {
+    id: '014_paper_payout_grants',
+    sql: `
+      CREATE TABLE IF NOT EXISTS paper_payout_grants (
+        payout_id uuid PRIMARY KEY REFERENCES payouts (id) ON DELETE CASCADE,
+        user_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+        amount_minor integer NOT NULL CHECK (amount_minor > 0),
+        granted_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE INDEX IF NOT EXISTS paper_payout_grants_user_idx
+        ON paper_payout_grants (user_id);
+    `,
+  },
+  {
+    id: '015_paper_cash_ledger',
+    sql: `
+      CREATE TABLE IF NOT EXISTS paper_cash_ledger (
+        id uuid PRIMARY KEY,
+        user_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+        event_key text NOT NULL UNIQUE,
+        kind text NOT NULL CHECK (
+          kind IN ('payout', 'payout_reversal', 'buy', 'sell')
+        ),
+        amount_minor integer NOT NULL CHECK (amount_minor <> 0),
+        description text NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE INDEX IF NOT EXISTS paper_cash_ledger_user_created_idx
+        ON paper_cash_ledger (user_id, created_at DESC);
+    `,
+  },
 ];

@@ -15,9 +15,10 @@ import { Label } from '@repo/ui/components/label';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
-import { dollarsToMinor, formatUsd } from '../../lib/money';
+import { formatUsd } from '../../lib/money';
 
 const statuses = ['all', 'forming', 'active', 'completed'] as const;
+const MAX_MONTHLY_AMOUNT_MINOR = 150_000;
 
 type StatusFilter = (typeof statuses)[number];
 
@@ -29,23 +30,38 @@ export function CircleList({
   searchable?: boolean;
 }) {
   const [name, setName] = useState('');
+  const [circleId, setCircleId] = useState('');
+  const [minimumScore, setMinimumScore] = useState('');
   const [status, setStatus] = useState<StatusFilter>('all');
-  const [minAmount, setMinAmount] = useState('');
-  const [maxAmount, setMaxAmount] = useState('');
+  const [maxAmountMinor, setMaxAmountMinor] = useState<number | null>(null);
   const [openSeats, setOpenSeats] = useState(false);
   const [createdByYou, setCreatedByYou] = useState(false);
 
-  const minMinor = minAmount.trim() === '' ? null : dollarsToMinor(minAmount);
-  const maxMinor = maxAmount.trim() === '' ? null : dollarsToMinor(maxAmount);
-  const amountError =
-    (minAmount.trim() !== '' && minMinor === null) ||
-    (maxAmount.trim() !== '' && maxMinor === null);
+  const effectiveMaxAmount = Math.min(
+    maxAmountMinor ?? MAX_MONTHLY_AMOUNT_MINOR,
+    MAX_MONTHLY_AMOUNT_MINOR,
+  );
 
   const visible = useMemo(() => {
     const query = name.trim().toLowerCase();
+    const idQuery = circleId.trim().toLowerCase();
+    const scoreQuery =
+      minimumScore.trim() === '' ? null : Number(minimumScore);
 
     return circles.filter((circle) => {
       if (query && !circle.name.toLowerCase().includes(query)) {
+        return false;
+      }
+
+      if (idQuery && !circle.id.toLowerCase().includes(idQuery)) {
+        return false;
+      }
+
+      if (
+        scoreQuery !== null &&
+        Number.isFinite(scoreQuery) &&
+        (circle.minimumCreditScore ?? 0) < scoreQuery
+      ) {
         return false;
       }
 
@@ -53,11 +69,7 @@ export function CircleList({
         return false;
       }
 
-      if (minMinor !== null && circle.monthlyAmountMinor < minMinor) {
-        return false;
-      }
-
-      if (maxMinor !== null && circle.monthlyAmountMinor > maxMinor) {
+      if (circle.monthlyAmountMinor > effectiveMaxAmount) {
         return false;
       }
 
@@ -71,7 +83,16 @@ export function CircleList({
 
       return true;
     });
-  }, [circles, createdByYou, maxMinor, minMinor, name, openSeats, status]);
+  }, [
+    circleId,
+    circles,
+    createdByYou,
+    effectiveMaxAmount,
+    name,
+    minimumScore,
+    openSeats,
+    status,
+  ]);
 
   if (circles.length === 0) {
     return (
@@ -111,6 +132,15 @@ export function CircleList({
               onChange={(event) => setName(event.target.value)}
             />
           </div>
+          <div className="grid gap-2">
+            <Label htmlFor="circle-id-search">Search by circle ID</Label>
+            <Input
+              id="circle-id-search"
+              value={circleId}
+              placeholder="Paste a circle ID"
+              onChange={(event) => setCircleId(event.target.value)}
+            />
+          </div>
           <div className="flex flex-wrap gap-2">
             {statuses.map((item) => (
               <button
@@ -148,62 +178,80 @@ export function CircleList({
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-2">
-              <Label htmlFor="min-amount">Minimum monthly</Label>
-              <Input
-                id="min-amount"
-                inputMode="decimal"
-                placeholder="1.00"
-                value={minAmount}
-                onChange={(event) => setMinAmount(event.target.value)}
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="max-amount">Maximum monthly payment</Label>
+                <span className="text-sm text-muted-foreground">
+                  {formatUsd(effectiveMaxAmount)}
+                </span>
+              </div>
+              <input
+                id="max-amount"
+                type="range"
+                min={0}
+                max={MAX_MONTHLY_AMOUNT_MINOR}
+                step={100}
+                value={effectiveMaxAmount}
+                onChange={(event) =>
+                  setMaxAmountMinor(Number(event.target.value))
+                }
+                className="w-full accent-primary"
+                aria-label="Maximum monthly payment"
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="max-amount">Maximum monthly</Label>
-              <Input
-                id="max-amount"
-                inputMode="decimal"
-                placeholder="100000.00"
-                value={maxAmount}
-                onChange={(event) => setMaxAmount(event.target.value)}
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="minimum-score-search">
+                  Minimum score requirement
+                </Label>
+                <span className="text-sm text-muted-foreground">
+                  {minimumScore.trim() === '' ? 'Any' : minimumScore}
+                </span>
+              </div>
+              <input
+                id="minimum-score-search"
+                type="range"
+                min={0}
+                max={1000}
+                step={1}
+                value={minimumScore === '' ? 0 : Number(minimumScore)}
+                onChange={(event) => setMinimumScore(event.target.value)}
+                className="w-full accent-primary"
+                aria-label="Minimum score requirement"
               />
             </div>
           </div>
-          {amountError ? (
-            <p className="text-sm text-destructive">
-              Enter monthly amounts in dollars, such as 50.00.
-            </p>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Filter by name, status, monthly amount, open seats, or circles you
-              created.
-            </p>
-          )}
+          <p className="text-sm text-muted-foreground">
+            Circles with an open seat, plus the circles you belong to. Filter
+            by name, ID, status, maximum monthly amount, open seats, or circles
+            you created.
+          </p>
         </form>
       ) : null}
       {visible.length === 0 ? (
         <Card>
           <CardHeader>
             <CardTitle>No matching circle</CardTitle>
-            <CardDescription>
-              None of your circles match this search.
-            </CardDescription>
+            <CardDescription>No circle matches this search.</CardDescription>
           </CardHeader>
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {visible.map((circle) => (
-            <Link
-              key={circle.id}
-              href={`/circles/${circle.id}`}
-              className="block"
-            >
-              <Card className="h-full transition-colors hover:bg-muted/40">
+          {visible.map((circle) => {
+            const card = (
+              <Card
+                className={`h-full ${circle.viewerIsMember ? 'transition-colors hover:bg-muted/40' : ''}`}
+              >
                 <CardHeader>
                   <div className="flex items-start justify-between gap-3">
                     <CardTitle>{circle.name}</CardTitle>
-                    <Badge variant="outline">
-                      {statusLabel(circle.status)}
-                    </Badge>
+                    <div className="flex shrink-0 gap-2">
+                      {searchable && circle.viewerIsMember ? (
+                        <Badge variant="outline">Yours</Badge>
+                      ) : null}
+                      <Badge variant="outline">
+                        {statusLabel(circle.status)}
+                      </Badge>
+                    </div>
                   </div>
                   <CardDescription>
                     {formatUsd(circle.monthlyAmountMinor)} each month
@@ -234,21 +282,62 @@ export function CircleList({
                       }}
                     />
                   </div>
-                  <p className="mt-3">
-                    {circle.status === 'forming'
-                      ? 'Next: fill the seats, then lock the circle.'
-                      : circle.status === 'active'
-                        ? 'Next: track contributions and the current payout turn.'
-                        : 'Completed circle history.'}
-                  </p>
+                  <p className="mt-3">{cardNote(circle)}</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span>
+                      Created by {circle.createdByDisplayName ?? 'Unknown member'}
+                    </span>
+                    <Badge className={scoreTagClass(circle.minimumCreditScore ?? 0)}>
+                      Score {circle.minimumCreditScore ?? 0} required
+                    </Badge>
+                  </div>
                 </CardContent>
               </Card>
-            </Link>
-          ))}
+            );
+
+            return circle.viewerIsMember ? (
+              <Link
+                key={circle.id}
+                href={`/circles/${circle.id}`}
+                className="block"
+              >
+                {card}
+              </Link>
+            ) : (
+              <div key={circle.id}>{card}</div>
+            );
+          })}
         </div>
       )}
     </div>
   );
+}
+
+function cardNote(circle: CircleSummary): string {
+  if (circle.viewerIsMember) {
+    if (circle.status === 'forming') {
+      return 'Next: fill the seats, then lock the circle.';
+    }
+
+    if (circle.status === 'active') {
+      return 'Next: track contributions and the current payout turn.';
+    }
+
+    return 'Completed circle history.';
+  }
+
+  if (
+    circle.status === 'forming' &&
+    circle.memberCount < circle.membersRequired
+  ) {
+    return 'You are not in this circle. An invite is required to join.';
+  }
+
+  if (circle.status === 'forming') {
+    return 'You are not in this circle. It is full.';
+  }
+
+  return 'You are not in this circle.';
 }
 
 function statusLabel(status: CircleSummary['status']): string {
@@ -261,4 +350,20 @@ function statusLabel(status: CircleSummary['status']): string {
   }
 
   return 'Completed';
+}
+
+function scoreTagClass(score: number): string {
+  if (score >= 80) {
+    return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700';
+  }
+
+  if (score >= 40) {
+    return 'border-blue-500/40 bg-blue-500/10 text-blue-700';
+  }
+
+  if (score > 0) {
+    return 'border-amber-500/40 bg-amber-500/10 text-amber-700';
+  }
+
+  return 'border-muted-foreground/30 bg-muted text-muted-foreground';
 }

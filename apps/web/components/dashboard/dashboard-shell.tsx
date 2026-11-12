@@ -18,10 +18,12 @@ import {
 import { TooltipProvider } from '@repo/ui/components/tooltip';
 import { UserButton } from '@clerk/nextjs';
 import {
+  ChartLineIcon,
   CirclePlusIcon,
   LayoutDashboardIcon,
   Settings2Icon,
   UsersIcon,
+  WalletIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -30,6 +32,8 @@ import type { CSSProperties, ReactNode } from 'react';
 const nav = [
   { href: '/', label: 'Overview', icon: LayoutDashboardIcon },
   { href: '/circles', label: 'Circles', icon: UsersIcon },
+  { href: '/stocks', label: 'Stock', icon: ChartLineIcon },
+  { href: '/portfolio', label: 'Portfolio', icon: WalletIcon },
 ];
 
 export function DashboardShell({
