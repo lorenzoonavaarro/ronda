@@ -355,7 +355,7 @@ describe('CirclesService', () => {
     ).rejects.toBeInstanceOf(InvalidCircleInputError);
   });
 
-  it('returns the invite and leaves yield unrecorded for a member', async () => {
+  it('returns the invite for a member', async () => {
     const { service } = createService();
     const created = await service.create('user-1', {
       name: 'Thursday pot',
@@ -375,11 +375,6 @@ describe('CirclesService', () => {
         contributionStatus: 'not_due',
       },
     ]);
-    expect(detail.yield).toEqual({
-      status: 'not_earning',
-      earnedMinor: null,
-      availableMinor: null,
-    });
     await expect(
       service.getForMember('user-2', created.id),
     ).rejects.toBeInstanceOf(CircleNotFoundError);

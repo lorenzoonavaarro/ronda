@@ -4,7 +4,6 @@ import { ApproveChargesLink } from '@/components/dashboard/approve-charges-link'
 import { CircleSettings } from '@/components/dashboard/circle-settings';
 import { InviteLink } from '@/components/dashboard/invite-link';
 import { DashboardShell } from '@/components/dashboard/dashboard-shell';
-import { YieldSimulator } from '@/components/dashboard/yield-simulator';
 import { Badge } from '@repo/ui/components/badge';
 import {
   Card,
@@ -304,33 +303,6 @@ export default async function CircleDetailPage({
               </CardContent>
             </Card>
           ) : null}
-          <Card>
-            <CardHeader>
-              <CardTitle>Yield</CardTitle>
-              <CardDescription>
-                Part of the pooled money earns interest after contributions are
-                collected.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4">
-              <dl className="grid gap-3 text-sm">
-                <Fact label="Status" value="Not earning" />
-                <Fact label="Earned" value="Not recorded" />
-                <Fact label="Available" value="Not recorded" />
-              </dl>
-              <YieldSimulator
-                chargesBeginOn={circle.chargesBeginOn}
-                monthlyAmountMinor={circle.monthlyAmountMinor}
-                membersRequired={circle.membersRequired}
-                members={circle.members.map((member) => ({
-                  displayName: member.displayName,
-                  username: member.username,
-                  payoutPosition: member.payoutPosition,
-                  contributionStatus: member.contributionStatus,
-                }))}
-              />
-            </CardContent>
-          </Card>
         </div>
       </div>
     </DashboardShell>

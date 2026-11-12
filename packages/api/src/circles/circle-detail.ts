@@ -27,9 +27,4 @@ export type CircleDetail = CircleSummary & {
   currentRound: number | null;
   viewerChargeApproved: boolean;
   members: CircleMember[];
-  yield: {
-    status: 'not_earning';
-    earnedMinor: null;
-    availableMinor: null;
-  };
 };

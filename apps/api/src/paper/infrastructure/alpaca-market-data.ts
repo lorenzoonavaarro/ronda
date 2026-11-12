@@ -83,6 +83,54 @@ export class AlpacaMarketData {
 
     return quotesFromAlpacaSnapshots(await response.json());
   }
+
+  async hotSymbols(limit = 6): Promise<string[]> {
+    const keys = credentials();
+
+    if (!keys) {
+      return [];
+    }
+
+    const response = await fetch(
+      `${DATA_URL}/v1beta1/screener/stocks/movers?top=${limit}`,
+      { headers: headers(keys), signal: AbortSignal.timeout(8000) },
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Alpaca movers request failed with status ${response.status}`,
+      );
+    }
+
+    const payload = (await response.json()) as {
+      gainers?: unknown;
+      losers?: unknown;
+    };
+    const symbols: string[] = [];
+
+    for (const group of [payload.gainers, payload.losers]) {
+      if (!Array.isArray(group)) {
+        continue;
+      }
+
+      for (const item of group) {
+        if (
+          item &&
+          typeof item === 'object' &&
+          'symbol' in item &&
+          typeof item.symbol === 'string' &&
+          /^[A-Z]{1,5}(?:\.[A-Z]{1,2})?$/.test(item.symbol)
+        ) {
+          const symbol = item.symbol.toUpperCase();
+          if (!symbols.includes(symbol)) {
+            symbols.push(symbol);
+          }
+        }
+      }
+    }
+
+    return symbols.slice(0, limit * 2);
+  }
 }
 
 function credentials(): { key: string; secret: string } | null {

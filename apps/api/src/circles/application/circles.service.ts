@@ -351,11 +351,6 @@ export class CirclesService {
             view.statusByUserId.get(member.userId) ??
             (view.currentRound === null ? 'not_due' : 'due'),
         })),
-      yield: {
-        status: 'not_earning',
-        earnedMinor: null,
-        availableMinor: null,
-      },
     };
   }
 }

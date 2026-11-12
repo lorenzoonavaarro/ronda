@@ -20,6 +20,7 @@ import type { PaperGrants } from './ports';
 @Injectable()
 export class PaperService implements PaperGrants {
   private boardCache: { at: number; quotes: PaperMarketQuote[] } | null = null;
+  private hotSymbolsCache: { day: string; symbols: string[] } | null = null;
 
   constructor(
     private readonly paper: PgPaperRepository,
@@ -85,18 +86,20 @@ export class PaperService implements PaperGrants {
     }
 
     try {
-      const quotes = await this.market.boardQuotes(
-        MARKET_BOARD.map((item) => item.symbol),
+      const symbols = await this.hotSymbols();
+      const quotes = await this.market.boardQuotes(symbols);
+      const names = new Map(
+        MARKET_BOARD.map((item) => [item.symbol, item.name]),
       );
 
-      return MARKET_BOARD.map((item) => {
-        const quote = quotes.get(item.symbol);
+      return symbols.map((symbol) => {
+        const quote = quotes.get(symbol);
         const priceMinor = quote?.priceMinor ?? null;
         const previousCloseMinor = quote?.previousCloseMinor ?? null;
 
         return {
-          symbol: item.symbol,
-          name: item.name,
+          symbol,
+          name: names.get(symbol) ?? symbol,
           priceMinor,
           previousCloseMinor,
           changeMinor: marketChange(priceMinor, previousCloseMinor),
@@ -104,6 +107,23 @@ export class PaperService implements PaperGrants {
       });
     } catch {
       return emptyBoard();
+    }
+  }
+
+  private async hotSymbols(): Promise<string[]> {
+    const day = new Date().toISOString().slice(0, 10);
+    if (this.hotSymbolsCache?.day === day) {
+      return this.hotSymbolsCache.symbols;
+    }
+
+    try {
+      const symbols = await this.market.hotSymbols();
+      const next =
+        symbols.length > 0 ? symbols : MARKET_BOARD.map((x) => x.symbol);
+      this.hotSymbolsCache = { day, symbols: next };
+      return next;
+    } catch {
+      return MARKET_BOARD.map((item) => item.symbol);
     }
   }
 

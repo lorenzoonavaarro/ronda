@@ -40,7 +40,6 @@ function circle(overrides: Partial<CircleDetail> = {}): CircleDetail {
         contributionStatus: 'due',
       },
     ],
-    yield: { status: 'not_earning', earnedMinor: null, availableMinor: null },
     ...overrides,
   };
 }

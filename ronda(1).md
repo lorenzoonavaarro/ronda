@@ -1,6 +1,6 @@
 # Ronda
 
-A digital ROSCA (Rotating Savings and Credit Association) that helps users save in groups while building credit history and earning better yield.
+A digital ROSCA (Rotating Savings and Credit Association) that helps users save in groups while building credit history.
 
 ## Core Concept
 
@@ -9,7 +9,6 @@ Ronda is a modern ROSCA — the formal term for traditional rotating savings gro
 In a classic ROSCA, members contribute a fixed amount on a regular schedule and take turns receiving the full pot. Ronda keeps this social savings mechanic and adds two layers that traditional ROSCAs lack:
 
 - **Credit history building** — on-time contributions create a visible, improvable credit score
-- **Improved yield** — part of the pooled funds earns interest instead of sitting idle
 
 ## Features
 
@@ -25,18 +24,13 @@ In a classic ROSCA, members contribute a fixed amount on a regular schedule and 
 - Streak tracking
 - Early payouts treated as short-term loans repaid through future contributions
 
-### 3. Improved Savings Yield
-- Part of the pooled money earns interest (high-yield or simulated)
-- Yield is shared with the group or shown as a bonus
-- Transparent breakdown of earning vs. available funds
-
-### 4. PayPal-powered Money Movement
+### 3. PayPal-powered Money Movement
 - Collect monthly contributions
 - Send the pot to the current recipient
 - Full transaction history
 - Real-time payment status
 
-### 5. AI Layer
+### 4. AI Layer
 - Risk scoring for group matching
 - Suggested fair payout order
 - Personalized coaching messages

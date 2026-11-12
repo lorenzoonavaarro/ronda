@@ -1,4 +1,4 @@
-import { PaperHoldings } from '@/components/dashboard/paper-holdings';
+import { PaperPortfolio } from '@/components/dashboard/paper-portfolio';
 import { DashboardShell } from '@/components/dashboard/dashboard-shell';
 
 import { getPaperAccount, requireUser } from '../../lib/api';
@@ -12,7 +12,7 @@ export default async function PortfolioPage() {
   return (
     <DashboardShell title="Portfolio">
       <div className="px-4 lg:px-6">
-        <PaperHoldings account={account} />
+        <PaperPortfolio account={account} />
       </div>
     </DashboardShell>
   );

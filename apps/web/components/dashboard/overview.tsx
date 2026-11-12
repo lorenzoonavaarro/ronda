@@ -60,7 +60,7 @@ export function Overview({
           </CardContent>
         </Card>
       </div>
-      <CircleList circles={circles} />
+      <CircleList circles={circles} title="Your circles" />
     </>
   );
 }

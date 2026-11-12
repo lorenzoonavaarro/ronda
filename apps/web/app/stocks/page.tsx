@@ -1,3 +1,4 @@
+import { PaperActivity } from '@/components/dashboard/paper-activity';
 import { PaperDesk } from '@/components/dashboard/paper-desk';
 import { PaperHoldings } from '@/components/dashboard/paper-holdings';
 import { DashboardShell } from '@/components/dashboard/dashboard-shell';
@@ -22,6 +23,7 @@ export default async function StocksPage() {
           quotesConfigured={account.quotesConfigured}
           buysOpen={account.buysOpen}
         />
+        <PaperActivity account={account} />
       </div>
     </DashboardShell>
   );

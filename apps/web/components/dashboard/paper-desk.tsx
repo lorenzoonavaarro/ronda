@@ -19,9 +19,10 @@ export function PaperDesk({
   const [picked, setPicked] = useState<PaperMarketQuote | null>(null);
 
   return (
-    <>
+    <div className="grid items-center gap-4 @3xl/main:grid-cols-[minmax(0,1.65fr)_minmax(16rem,22rem)]">
       <PaperMarket
         quotes={quotes}
+        selectedSymbol={symbol.trim().toUpperCase()}
         onPick={(quote) => {
           setSymbol(quote.symbol);
           setPicked(quote);
@@ -34,6 +35,6 @@ export function PaperDesk({
         onSymbolChange={setSymbol}
         picked={picked}
       />
-    </>
+    </div>
   );
 }

@@ -47,7 +47,6 @@ function detail(paid: boolean): CircleDetail {
         contributionStatus: paid ? 'paid' : 'due',
       },
     ],
-    yield: { status: 'not_earning', earnedMinor: null, availableMinor: null },
   };
 }
 

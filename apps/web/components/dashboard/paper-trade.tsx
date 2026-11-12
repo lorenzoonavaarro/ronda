@@ -115,7 +115,7 @@ export function PaperTrade({
   const shown = pickedQuote ?? quote;
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <CardTitle>Trade</CardTitle>
         <CardDescription>
@@ -124,7 +124,7 @@ export function PaperTrade({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form className="grid max-w-md gap-4" onSubmit={onSubmit}>
+        <form className="grid gap-4" onSubmit={onSubmit}>
           <Label className="grid gap-2">
             Symbol
             <Input
